@@ -1,0 +1,9 @@
+# Ignore sensitive files
+sql_scripts/my user.txt
+.env
+node_modules/
+.DS_Store
+*.log
+backup_V32/
+server.js
+upload.bat

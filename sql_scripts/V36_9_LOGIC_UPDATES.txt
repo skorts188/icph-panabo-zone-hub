@@ -1,0 +1,21 @@
+-- ICPH PANABO ZONE HUB - LATEST LOGIC UPDATES (V36.4 - V36.9)
+-- Documenting Frontend-Database Interactions
+
+-- MARKETPLACE SEARCH LOGIC (V36.4)
+-- This logic is handled in the frontend but relies on the 'marketplace' table.
+-- Search filters by: Title, Location, and Rider Name.
+-- SQL equivalent if done in Postgres:
+-- SELECT * FROM marketplace WHERE title ILIKE '%query%' OR location ILIKE '%query%' OR rider_name ILIKE '%query%';
+
+-- 2. ADMIN EVENT DELETION (V36.5)
+-- Requires 'admin' or 'superadmin' status in the 'riders' table.
+-- Performs a cascading-style delete:
+-- DELETE FROM participants WHERE event_id = 'target_uuid';
+-- DELETE FROM events WHERE id = 'target_uuid';
+
+-- 3. GLOBAL SEARCH RESTRICTION (V36.4)
+-- The global 'riders' search is now restricted to the Feed only to prevent UI overlap.
+
+-- 4. DATABASE PROTECTION (V36.3 RECAP)
+-- The 'admin@panabo.icph' account is protected by a Database Trigger/Rule.
+-- Master Code verification (iangwapo) moved to server-side RPC for security.

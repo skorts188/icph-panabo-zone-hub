@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Garage</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .garage-hero {
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('assets/cover.jpg') center/cover;
+            height: 200px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 1px solid var(--border);
+            padding: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .garage-hero {
+                height: 150px;
+            }
+            .garage-hero h1 {
+                font-size: 1.5rem !important;
+                letter-spacing: 2px !important;
+            }
+        }
+
+        .garage-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 500px) {
+            .garage-grid {
+                grid-template-columns: 1fr 1fr; /* Force 2 columns */
+                gap: 10px;
+            }
+            .bike-img-cont {
+                height: 120px !important;
+            }
+            .bike-info {
+                padding: 10px;
+            }
+            .bike-model {
+                font-size: 0.7rem !important;
+            }
+            .bike-owner {
+                font-size: 0.55rem !important;
+            }
+        }
+
+        .bike-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .garage-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .garage-controls {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+            .garage-controls .tab-bar {
+                justify-content: center;
+            }
+        }
+        .bike-card:hover { transform: translateY(-5px); border-color: var(--honda-red); }
+        .bike-img-cont { width: 100%; height: 180px; overflow: hidden; position: relative; }
+        .bike-img-cont img { width: 100%; height: 100%; object-fit: cover; }
+        .bike-info { padding: 15px; }
+        .bike-model { font-family: 'Orbitron'; font-size: 0.9rem; color: #fff; margin-bottom: 5px; }
+        .bike-owner { font-size: 0.7rem; color: #666; display: flex; align-items: center; gap: 5px; }
+        
+        .add-bike-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <main class="main-stage">
+        <div class="content-scroll">
+            <div style="max-width: 1000px; margin: 0 auto;">
+                
+                <div class="garage-hero">
+                    <h1 style="font-family:'Orbitron'; letter-spacing:5px; color:white; font-size:2rem; margin-bottom:10px;">THE GARAGE</h1>
+                    <p style="color:var(--honda-red); font-weight:700; font-size:0.8rem; letter-spacing:2px;">SHOWCASE YOUR RIDE</p>
+                </div>
+
+                <div class="garage-controls">
+                    <div class="tab-bar" style="background:transparent; border:none; padding:0;">
+                        <div class="tab-btn active" id="tab-all" onclick="filterGarage('all')">ALL BIKES</div>
+                        <div class="tab-btn" id="tab-mine" onclick="filterGarage('mine')">MY GARAGE</div>
+                    </div>
+                    <button class="btn-neon" style="width:auto; padding:10px 25px;" onclick="toggleAddModal(true)">
+                        <i class="fas fa-plus"></i> ADD BIKE
+                    </button>
+                </div>
+
+                <div id="garage-loading" style="text-align:center; padding:50px;">
+                    <i class="fas fa-motorcycle fa-beat" style="font-size:3rem; color:#222;"></i>
+                </div>
+
+                <div id="garage-container" class="garage-grid">
+                    <!-- Bike cards here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Bike Modal -->
+    <div id="add-modal" class="add-bike-modal hidden">
+        <div class="glass-card" style="width:100%; max-width:400px; padding:30px; position:relative;">
+            <i class="fas fa-times" style="position:absolute; top:20px; right:20px; cursor:pointer; color:#444;" onclick="toggleAddModal(false)"></i>
+            <h3 style="font-family:'Orbitron'; font-size:1rem; color:var(--honda-red); margin-bottom:20px;">ENROLL NEW RIDE</h3>
+            
+            <div style="margin-bottom:15px;">
+                <label style="font-size:0.7rem; color:#888; display:block; margin-bottom:5px;">BIKE MODEL</label>
+                <input type="text" id="g-model" class="input-dark" placeholder="e.g. Honda CBR 650R">
+            </div>
+            
+            <div style="margin-bottom:20px;">
+                <label style="font-size:0.7rem; color:#888; display:block; margin-bottom:5px;">PHOTO</label>
+                <div id="preview-box" style="width:100%; height:150px; background:#111; border:1px dashed #333; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden;" onclick="document.getElementById('g-file').click()">
+                    <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:#222;"></i>
+                </div>
+                <input type="file" id="g-file" class="hidden" onchange="previewFile(this)">
+            </div>
+
+            <button class="btn-neon" id="btn-save-bike" style="width:100%;" onclick="postGarage()">PUBLISH TO GARAGE</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let allBikes = [], currentFilter = 'all';
+
+        function toggleAddModal(show) {
+            document.getElementById('add-modal').classList.toggle('hidden', !show);
+            if(!show) {
+                document.getElementById('g-model').value = '';
+                document.getElementById('g-file').value = '';
+                document.getElementById('preview-box').innerHTML = '<i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:#222;"></i>';
+            }
+        }
+
+        function previewFile(input) {
+            const file = input.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('preview-box').innerHTML = `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover;">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function loadGarage() {
+            const { data, error } = await sb.from('garage').select('*').order('created_at', { ascending: false });
+            if(error) return console.error(error);
+            allBikes = data || [];
+            document.getElementById('garage-loading').classList.add('hidden');
+            renderGarage();
+        }
+
+        function renderGarage() {
+            const cont = document.getElementById('garage-container');
+            cont.innerHTML = '';
+            
+            const list = currentFilter === 'mine' ? allBikes.filter(b => b.rider_name === profile.name) : allBikes;
+            
+            if(list.length === 0) {
+                cont.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:50px; color:#444;">No bikes found in this section.</div>`;
+                return;
+            }
+
+            list.forEach(b => {
+                const card = document.createElement('div');
+                card.className = 'bike-card';
+                const isOwner = profile && b.rider_name === profile.name;
+                
+                card.innerHTML = `
+                    <div class="bike-img-cont">
+                        <img src="${b.bike_img}">
+                        ${isOwner ? `<i class="fas fa-trash" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.5); padding:8px; border-radius:50%; color:white; cursor:pointer; font-size:0.7rem;" onclick="deleteGarageItem('${b.id}')"></i>` : ''}
+                    </div>
+                    <div class="bike-info">
+                        <div class="bike-model">${b.bike_model.toUpperCase()}</div>
+                        <div class="bike-owner">
+                            <i class="fas fa-user-circle"></i> ${b.rider_name}
+                        </div>
+                    </div>
+                `;
+                cont.appendChild(card);
+            });
+        }
+
+        function filterGarage(f) {
+            currentFilter = f;
+            document.getElementById('tab-all').classList.toggle('active', f === 'all');
+            document.getElementById('tab-mine').classList.toggle('active', f === 'mine');
+            renderGarage();
+        }
+
+        async function postGarage() {
+            const btn = document.getElementById('btn-save-bike');
+            const model = document.getElementById('g-model').value.trim();
+            const file = document.getElementById('g-file').files[0];
+            
+            if(!model || !file) return alert("Please provide both model name and photo.");
+            
+            btn.disabled = true;
+            btn.innerText = "UPLOADING...";
+            
+            const path = `garage/${Date.now()}_${file.name}`;
+            const { error: uploadError } = await sb.storage.from('rides').upload(path, file);
+            
+            if(!uploadError) {
+                const url = (sb.storage.from('rides').getPublicUrl(path)).data.publicUrl;
+                await sb.from('garage').insert([{ rider_name: profile.name, bike_model: model, bike_img: url }]);
+                toggleAddModal(false);
+                loadGarage();
+            } else {
+                alert("Upload failed: " + uploadError.message);
+            }
+            
+            btn.disabled = false;
+            btn.innerText = "PUBLISH TO GARAGE";
+        }
+
+        async function deleteGarageItem(id) {
+            if(!confirm("Are you sure you want to remove this bike from your garage?")) return;
+            await sb.from('garage').delete().eq('id', id);
+            loadGarage();
+        }
+
+        window.addEventListener('load', () => {
+            const check = setInterval(() => {
+                if(profile) { clearInterval(check); loadGarage(); }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

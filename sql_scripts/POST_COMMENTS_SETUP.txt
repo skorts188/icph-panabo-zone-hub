@@ -1,0 +1,13 @@
+-- SQL SETUP FOR POST COMMENTS SYSTEM
+-- Execute this in your Supabase SQL Editor
+
+CREATE TABLE IF NOT EXISTS post_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+    rider_name TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Enable Real-time for post_comments
+ALTER PUBLICATION supabase_realtime ADD TABLE post_comments;

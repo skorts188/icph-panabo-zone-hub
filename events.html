@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Events</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .events-hero {
+            position: relative;
+            width: 100%;
+            height: 450px; /* Tall height to show more of the image */
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #000;
+        }
+
+        .events-banner-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 20%;
+        }
+
+        .events-hero-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 40%, rgba(0,0,0,0.8) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start; /* Title at the top */
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .events-hero-overlay h1 {
+            text-shadow: 0 0 20px rgba(0,0,0,0.9);
+        }
+
+        @media (max-width: 600px) {
+            .events-hero {
+                height: 250px;
+            }
+            .events-hero-overlay {
+                padding: 30px 15px;
+            }
+        }
+        .event-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            display: flex;
+            transition: 0.3s;
+        }
+        .event-card:hover { transform: scale(1.01); border-color: var(--honda-red); }
+        .event-date-box {
+            width: 120px;
+            background: rgba(255,255,255,0.03);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid var(--border);
+            text-align: center;
+            padding: 20px;
+        }
+        .event-day { font-family: 'Orbitron'; font-size: 2rem; font-weight: 900; color: var(--honda-red); line-height: 1; }
+        .event-month { font-family: 'Orbitron'; font-size: 0.8rem; color: #fff; text-transform: uppercase; margin-top: 5px; }
+        .event-body { padding: 25px; flex: 1; position: relative; }
+        .participant-dot {
+            width: 25px; height: 25px; border-radius: 50%; border: 2px solid #000;
+            background: #222; margin-left: -8px; overflow: hidden; display: inline-block;
+        }
+        .participant-dot img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .join-btn {
+            position: absolute; top: 25px; right: 25px;
+            padding: 10px 25px; border-radius: 30px; font-weight: 800; font-size: 0.75rem;
+            cursor: pointer; transition: 0.3s;
+        }
+        .join-btn.active { background: #333; color: #888; border: 1px solid #444; cursor: default; }
+        .join-btn.primary { background: var(--honda-red); color: #fff; border: none; box-shadow: 0 0 15px rgba(227, 6, 19, 0.4); }
+        
+        .cancel-btn {
+            background: #0a0a0a;
+            color: #444;
+            border: 1px solid #1a1a1a;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 800;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            overflow: hidden;
+        }
+        .cancel-btn:hover {
+            background: rgba(227, 6, 19, 0.05);
+            color: var(--honda-red);
+            border-color: var(--honda-red);
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(227, 6, 19, 0.3);
+            letter-spacing: 1px;
+        }
+        .cancel-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(227, 6, 19, 0.2), transparent);
+            transition: 0.5s;
+        }
+        .cancel-btn:hover::before { left: 100%; }
+        .cancel-btn:active { transform: scale(0.95); }
+
+        .joined-badge {
+            position: absolute; top: 25px; right: 165px;
+            background: rgba(49, 162, 76, 0.1);
+            color: #31a24c;
+            border: 1px solid rgba(49, 162, 76, 0.3);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 800;
+            font-size: 0.7rem;
+            font-family: 'Orbitron';
+            animation: fade-in-left 0.5s ease-out;
+        }
+        @keyframes fade-in-left { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+        .delete-ev-btn {
+            background: rgba(227, 6, 19, 0.1);
+            color: var(--honda-red);
+            border: 1px solid rgba(227, 6, 19, 0.3);
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.3s;
+            position: absolute;
+            top: 25px;
+            right: 25px;
+        }
+        .delete-ev-btn:hover {
+            background: var(--honda-red);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(227, 6, 19, 0.4);
+        }
+
+        @media (max-width: 700px) {
+            .event-card { flex-direction: column; position: relative; }
+            .event-date-box { width: 100%; height: 80px; flex-direction: row; gap: 15px; border-right: none; border-bottom: 1px solid var(--border); }
+            .event-body { padding: 20px; padding-bottom: 80px; } /* Add space for buttons at bottom if needed, or make them flow */
+            
+            .join-btn, .cancel-btn, .delete-ev-btn { 
+                position: static !important; 
+                width: 100% !important; 
+                margin-top: 15px !important;
+                text-align: center;
+            }
+            .joined-badge {
+                position: static !important;
+                display: inline-block;
+                width: 100%;
+                text-align: center;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <main class="main-stage">
+        <div class="content-scroll">
+            <div style="max-width: 900px; margin: 0 auto;">
+                
+                <div class="events-hero">
+                    <img src="assets/cover.jpg" class="events-banner-img">
+                    <div class="events-hero-overlay">
+                        <h1 style="font-family:'Orbitron'; letter-spacing:5px; color:white; font-size:2.2rem; margin-bottom:10px;">EPIC EVENTS</h1>
+                        <p style="color:var(--honda-red); font-weight:700; font-size:0.8rem; letter-spacing:3px;">JOIN THE PACK • CONQUER THE ROAD</p>
+                    </div>
+                </div>
+
+                <div id="admin-creator-cont" class="hidden">
+                    <div class="glass-card" style="margin-bottom:30px; border-style:dashed; border-color:var(--honda-red);">
+                        <h3 style="font-family:'Orbitron'; font-size:0.9rem; color:var(--honda-red); margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+                            <i class="fas fa-plus-circle"></i> ANNOUNCE NEW RIDE
+                        </h3>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+                            <input type="text" id="ev-title" class="input-dark" placeholder="Ride Destination / Title">
+                            <input type="date" id="ev-date" class="input-dark">
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap:15px; margin-bottom:20px;">
+                            <input type="text" id="ev-loc" class="input-dark" placeholder="Meeting Point">
+                            <input type="text" id="ev-desc" class="input-dark" placeholder="Ride rules, requirements, or route description...">
+                        </div>
+                        <button class="btn-neon" style="width:100%;" onclick="publishHubEvent()">PUBLISH TO COMMUNITY</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding:0 5px;">
+                    <h4 style="font-family:'Orbitron'; font-size:0.8rem; color:white; letter-spacing:2px;">UPCOMING ADVENTURES</h4>
+                    <div id="ev-count" style="font-size:0.7rem; color:#444; font-weight:800;">0 EVENTS FOUND</div>
+                </div>
+
+                <div id="ev-loading" style="text-align:center; padding:50px;">
+                    <i class="fas fa-map-marked-alt fa-beat" style="font-size:2rem; color:#111;"></i>
+                </div>
+
+                <div id="events-grid">
+                    <!-- Events here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Attendance Modal -->
+    <div id="attendance-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:10000; display:flex; align-items:center; justify-content:center; padding:20px;">
+        <div class="glass-card" style="width:100%; max-width:500px; max-height:80vh; overflow:hidden; display:flex; flex-direction:column; padding:0; border-color:var(--honda-red);">
+            <div style="padding:25px; border-bottom:1px solid #1a1a1a; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h3 style="font-family:'Orbitron'; font-size:1rem; color:var(--honda-red); letter-spacing:2px;">RIDE ATTENDANCE</h3>
+                    <p id="att-event-title" style="font-size:0.7rem; color:#555; text-transform:uppercase; margin-top:5px;"></p>
+                </div>
+                <i class="fas fa-times" style="cursor:pointer; color:#444;" onclick="closeAttendance()"></i>
+            </div>
+            <div id="att-list" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:10px;">
+                <!-- Attendance items -->
+            </div>
+            <div style="padding:15px; border-top:1px solid #1a1a1a; text-align:center;">
+                <button class="btn-neon" style="width:auto; padding:8px 30px; font-size:0.7rem;" onclick="closeAttendance()">CLOSE ROSTER</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let allEvents = {};
+
+        async function loadEvents() {
+            if(!profile) return;
+            if(profile.is_admin || profile.is_super_admin) document.getElementById('admin-creator-cont').classList.remove('hidden');
+            
+            const { data, error } = await sb.from('events').select('*').order('date', { ascending: true });
+            document.getElementById('ev-loading').classList.add('hidden');
+            const cont = document.getElementById('events-grid');
+            cont.innerHTML = '';
+
+            if(error) return console.error(error);
+            
+            document.getElementById('ev-count').innerText = `${data?.length || 0} EVENTS FOUND`;
+
+            if(!data || data.length === 0) {
+                cont.innerHTML = '<div style="text-align:center; padding:80px; color:#444;">No upcoming rides scheduled. Check back soon!</div>';
+                return;
+            }
+
+            for(const ev of data) {
+                allEvents[ev.id] = ev;
+                const { data: pts } = await sb.from('participants').select('*').eq('event_id', ev.id);
+                const isJoining = pts?.some(x => x.rider_name === profile.name);
+                const evDate = new Date(ev.date);
+                const day = evDate.getDate();
+                const month = evDate.toLocaleString('default', { month: 'short' });
+                
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                
+                let ptsHtml = '';
+                pts?.slice(0, 5).forEach(p => {
+                    ptsHtml += `<div class="participant-dot"><img src="assets/logo.png" id="p-avatar-${ev.id}-${p.id}"></div>`;
+                    // Async load avatars
+                    sb.from('riders').select('avatar_url').eq('name', p.rider_name).single().then(r => {
+                        const img = document.getElementById(`p-avatar-${ev.id}-${p.id}`);
+                        if(img && r.data?.avatar_url) img.src = r.data.avatar_url;
+                    });
+                });
+
+                card.innerHTML = `
+                    <div class="event-date-box">
+                        <div class="event-day">${day}</div>
+                        <div class="event-month">${month}</div>
+                    </div>
+                    <div class="event-body">
+                        <h3 style="font-family:'Orbitron'; font-size:1.1rem; color:white; margin-bottom:8px; letter-spacing:1px;">${ev.title.toUpperCase()}</h3>
+                        <div style="display:flex; flex-wrap:wrap; gap:15px; margin-bottom:15px;">
+                            <span style="font-size:0.75rem; color:#888;"><i class="fas fa-map-marker-alt" style="color:var(--honda-red);"></i> ${ev.location || 'TBA'}</span>
+                            <span style="font-size:0.75rem; color:#888;"><i class="fas fa-clock" style="color:var(--honda-red);"></i> Ride Kickoff</span>
+                        </div>
+                        <p style="color:#555; font-size:0.8rem; line-height:1.5; margin-bottom:20px; border-left:2px solid #222; padding-left:15px;">${ev.description || 'No description provided.'}</p>
+                        
+                        <div style="display:flex; align-items:center; gap:15px; cursor:pointer;" onclick="showAttendance('${ev.id}')" title="Click to view full roster">
+                            <div style="display:flex; align-items:center;">
+                                ${ptsHtml}
+                                ${pts?.length > 5 ? `<div style="font-size:0.6rem; color:#444; margin-left:10px;">+${pts.length - 5} others</div>` : ''}
+                            </div>
+                            <span style="font-size:0.65rem; color:#444; font-weight:800; font-family:'Orbitron';">
+                                ${pts?.length || 0} RIDERS COMMITTED <i class="fas fa-external-link-alt" style="font-size:0.5rem; margin-left:5px;"></i>
+                            </span>
+                        </div>
+
+                        ${isJoining ? 
+                            `<div class="joined-badge"><i class="fas fa-check"></i> JOINED</div>
+                             <button class="cancel-btn" onclick="cancelRide('${ev.id}')">CANCEL RIDE</button>` : 
+                            `<button class="join-btn primary" onclick="joinEvent('${ev.id}')"><i class="fas fa-plus"></i> JOIN RIDE</button>`
+                        }
+
+                        ${profile.is_admin || profile.is_super_admin ? 
+                            `<button class="delete-ev-btn" style="top: 80px;" onclick="deleteHubEvent('${ev.id}')"><i class="fas fa-trash-alt"></i> DELETE</button>` : ''
+                        }
+                    </div>
+                `;
+                cont.appendChild(card);
+            }
+        }
+
+        async function deleteHubEvent(eventId) {
+            if(!confirm("Are you sure you want to PERMANENTLY delete this event and all its attendance records?")) return;
+            try {
+                // Supabase typically handles cascade deletes if RLS and Foreign Keys are set correctly
+                // but let's be explicit just in case
+                await sb.from('participants').delete().eq('event_id', eventId);
+                const { error } = await sb.from('events').delete().eq('id', eventId);
+                
+                if(error) throw error;
+                
+                alert("Event deleted successfully!");
+                loadEvents();
+            } catch (err) {
+                console.error("Delete Error:", err);
+                alert("Failed to delete event: " + err.message);
+            }
+        }
+
+        async function showAttendance(eventId) {
+            const modal = document.getElementById('attendance-modal');
+            const list = document.getElementById('att-list');
+            const titleEl = document.getElementById('att-event-title');
+            
+            modal.classList.remove('hidden');
+            list.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading Roster...</div>';
+            
+            const ev = allEvents[eventId];
+            if(ev) titleEl.innerText = ev.title;
+
+            const { data: participants } = await sb.from('participants').select('*').eq('event_id', eventId);
+            
+            if(!participants || participants.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:40px; color:#444;">No riders joined yet.</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            for(const p of participants) {
+                const { data: r } = await sb.from('riders').select('*').eq('name', p.rider_name).single();
+                const div = document.createElement('div');
+                div.style.cssText = "display:flex; align-items:center; gap:15px; padding:12px; background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid #111;";
+                div.innerHTML = `
+                    ${getAvatarHTML(p.rider_name, r?.avatar_url, "style='width:40px; height:40px; border:1px solid #333;'")}
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <b style="font-size:0.85rem; color:white;">${p.rider_name}</b>
+                            ${getBadgeHTML(r?.rank, r?.is_super_admin, p.rider_name)}
+                        </div>
+                        <div style="font-size:0.6rem; color:#444;">${r?.motorcycle_model || 'Rider'}</div>
+                    </div>
+                    <i class="fas fa-check-circle" style="color:#31a24c; font-size:0.9rem;"></i>
+                `;
+                list.appendChild(div);
+            }
+        }
+
+        function closeAttendance() {
+            document.getElementById('attendance-modal').classList.add('hidden');
+        }
+
+        async function publishHubEvent() {
+            try {
+                const t = document.getElementById('ev-title').value, 
+                      d = document.getElementById('ev-date').value, 
+                      l = document.getElementById('ev-loc').value, 
+                      ds = document.getElementById('ev-desc').value;
+
+                if(!t || !d) return alert("Please provide both a title and date.");
+                if(!profile) return alert("Session expired. Please login again.");
+
+                console.log("Publishing event:", t);
+
+                const { data, error } = await sb.from('events').insert([{ title: t, date: d, location: l, description: ds }]).select();
+                
+                if(error) {
+                    alert("Database Error: " + error.message);
+                    return;
+                }
+
+                // UI Cleanup
+                document.getElementById('ev-title').value = '';
+                document.getElementById('ev-date').value = '';
+                document.getElementById('ev-loc').value = '';
+                document.getElementById('ev-desc').value = '';
+                
+                await loadEvents();
+                alert("Event Published to Community!");
+
+                // Background Notifications
+                const { data: riders } = await sb.from('riders').select('name');
+                if(riders) {
+                    riders.forEach(r => {
+                        if(r.name !== profile.name) {
+                            createNotification(r.name, "SYSTEM", `new ride announced: ${t.toUpperCase()}`, "event", data[0]?.id || 'event-page');
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Critical Error:", err);
+                alert("An unexpected error occurred. Check console for details.");
+            }
+        }
+
+        async function joinEvent(eventId) {
+            const { error } = await sb.from('participants').insert([{ event_id: eventId, rider_name: profile.name }]);
+            if(error) alert(error.message);
+            else loadEvents();
+        }
+
+        async function cancelRide(eventId) {
+            if(!confirm("Are you sure you want to cancel your participation in this ride?")) return;
+            const { error } = await sb.from('participants').delete().eq('event_id', eventId).eq('rider_name', profile.name);
+            if(error) alert("Cancel failed: " + error.message);
+            else loadEvents();
+        }
+
+        window.addEventListener('load', () => {
+            const check = setInterval(() => {
+                if(profile) { clearInterval(check); loadEvents(); }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

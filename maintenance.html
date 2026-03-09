@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Maintenance</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .maint-hero {
+            background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('assets/cover.jpg') center/cover;
+            padding: 40px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .maint-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 25px;
+        }
+        .maint-log-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.3s;
+        }
+        .maint-log-card:hover { background: rgba(255,255,255,0.04); }
+        .maint-type-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            background: rgba(255,255,255,0.05); display: flex;
+            align-items: center; justify-content: center; font-size: 1.2rem;
+        }
+        .status-pill {
+            padding: 4px 12px; border-radius: 20px; font-size: 0.65rem;
+            font-weight: 800; font-family: 'Orbitron'; letter-spacing: 1px;
+        }
+        .status-good { background: rgba(49, 162, 76, 0.1); color: #31a24c; border: 1px solid rgba(49, 162, 76, 0.3); }
+        .status-overdue { background: rgba(227, 6, 19, 0.1); color: var(--honda-red); border: 1px solid var(--honda-red); animation: pulse-red 2s infinite; }
+        
+        @keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @media (max-width: 800px) { .maint-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body class="dark-mode">
+    <main class="main-stage">
+        <div class="content-scroll">
+            <div style="max-width: 1000px; margin: 0 auto;">
+                
+                <div class="maint-hero">
+                    <h1 style="font-family:'Orbitron'; letter-spacing:5px; color:white; font-size:1.8rem; margin-bottom:10px;">MAINTENANCE LOG</h1>
+                    <p style="color:#666; font-size:0.8rem; letter-spacing:2px;">KEEP YOUR MACHINE IN PEAK CONDITION</p>
+                </div>
+
+                <div class="maint-grid">
+                    <!-- Add Log Section -->
+                    <div class="glass-card" style="height: fit-content; position:sticky; top:0;">
+                        <h3 style="font-family:'Orbitron'; font-size:0.9rem; color:var(--honda-red); margin-bottom:20px; letter-spacing:2px;">LOG NEW SERVICE</h3>
+                        
+                        <div style="margin-bottom:15px;">
+                            <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">SERVICE TYPE</label>
+                            <select id="maint-type" class="input-dark">
+                                <option>Oil Change</option>
+                                <option>CVT Cleaning</option>
+                                <option>Tire Replacement</option>
+                                <option>General Checkup</option>
+                                <option>Brake Fluid Flush</option>
+                                <option>Coolant Top-up</option>
+                                <option>Chain/Belt Maintenance</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-bottom:20px;">
+                            <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">SERVICE DATE</label>
+                            <input type="date" id="maint-last" class="input-dark">
+                        </div>
+
+                        <button class="btn-neon" style="width:100%;" onclick="addMaint()">
+                            <i class="fas fa-save"></i> RECORD SERVICE
+                        </button>
+                    </div>
+
+                    <!-- Logs List -->
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding:0 10px;">
+                            <h4 style="font-family:'Orbitron'; font-size:0.8rem; color:white; letter-spacing:2px;">SERVICE HISTORY</h4>
+                            <div id="maint-count" style="font-size:0.7rem; color:#444; font-weight:800;">0 RECORDS</div>
+                        </div>
+                        
+                        <div id="maint-loading" style="text-align:center; padding:50px;">
+                            <i class="fas fa-cog fa-spin" style="font-size:2rem; color:#111;"></i>
+                        </div>
+
+                        <div id="maint-list-cont">
+                            <!-- Logs here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        const iconMap = {
+            'Oil Change': 'fas fa-oil-can',
+            'CVT Cleaning': 'fas fa-tools',
+            'Tire Replacement': 'fas fa-dharmachakra',
+            'General Checkup': 'fas fa-clipboard-check',
+            'Brake Fluid Flush': 'fas fa-tint',
+            'Coolant Top-up': 'fas fa-thermometer-half',
+            'Chain/Belt Maintenance': 'fas fa-link'
+        };
+
+        async function loadMaintList() {
+            if(!profile) return;
+            const { data, error } = await sb.from('maintenance_logs').select('*').eq('user_id', currentUser.id).order('last_date', { ascending: false });
+            
+            document.getElementById('maint-loading').classList.add('hidden');
+            const cont = document.getElementById('maint-list-cont');
+            cont.innerHTML = '';
+
+            if(error) return console.error(error);
+            
+            document.getElementById('maint-count').innerText = `${data?.length || 0} RECORDS`;
+
+            if(!data || data.length === 0) {
+                cont.innerHTML = '<div style="text-align:center; padding:50px; color:#444;">No service logs found yet. Start tracking your maintenance today!</div>';
+                return;
+            }
+
+            data.forEach(log => {
+                const lastDate = new Date(log.last_date);
+                const diffMonths = (new Date() - lastDate) / (1000 * 60 * 60 * 24 * 30.44);
+                const isOverdue = diffMonths >= 3;
+                
+                const div = document.createElement('div');
+                div.className = 'maint-log-card';
+                
+                div.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <div class="maint-type-icon">
+                            <i class="${iconMap[log.log_type] || 'fas fa-wrench'}" style="color: ${isOverdue ? 'var(--honda-red)' : '#555'};"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:800; color:white; font-size:0.9rem; font-family:'Orbitron'; letter-spacing:1px;">${log.log_type.toUpperCase()}</div>
+                            <small style="color:#555; font-size:0.7rem;">Last: ${new Date(log.last_date).toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})}</small>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="status-pill ${isOverdue ? 'status-overdue' : 'status-good'}">
+                            ${isOverdue ? 'OVERDUE' : 'GOOD'}
+                        </div>
+                        <div style="font-size:0.6rem; color:#333; margin-top:5px; font-weight:800;">
+                            ${isOverdue ? 'NEEDS ATTENTION' : 'COMPLETED'}
+                        </div>
+                    </div>
+                `;
+                cont.appendChild(div);
+            });
+        }
+
+        async function addMaint() { 
+            const type = document.getElementById('maint-type').value, date = document.getElementById('maint-last').value;
+            if(!date) return alert("Please select a date."); 
+            
+            const { error } = await sb.from('maintenance_logs').insert([{ user_id: currentUser.id, log_type: type, last_date: date }]); 
+            if(error) alert(error.message);
+            else {
+                document.getElementById('maint-last').value = '';
+                loadMaintList();
+            }
+        }
+
+        window.addEventListener('load', () => {
+            const check = setInterval(() => {
+                if(profile) { clearInterval(check); loadMaintList(); }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

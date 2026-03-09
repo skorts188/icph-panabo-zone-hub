@@ -1,0 +1,30 @@
+-- FIX FOR CONVERSATION DELETION
+-- Run this in your Supabase SQL Editor (https://supabase.com/dashboard/project/xyztqvcehfqlkzoeivff/sql)
+
+-- This policy allows a user to delete ANY message in a private chat
+-- as long as they are either the SENDER or the RECEIVER.
+-- This is necessary to fully "Delete Chat" from the sidebar.
+
+DROP POLICY IF EXISTS "Users can delete their own messages" ON public.chats;
+
+CREATE POLICY "Users can delete conversations" 
+ON public.chats FOR DELETE 
+TO authenticated 
+USING (
+    sender_name = (SELECT name FROM public.riders WHERE id = auth.uid()) 
+    OR 
+    receiver_name = (SELECT name FROM public.riders WHERE id = auth.uid())
+);
+
+-- Also ensure SELECT policy is broad enough to avoid confusion
+DROP POLICY IF EXISTS "Users can see their own messages" ON public.chats;
+CREATE POLICY "Users can view their private chats"
+ON public.chats FOR SELECT
+TO authenticated
+USING (
+    sender_name = (SELECT name FROM public.riders WHERE id = auth.uid()) 
+    OR 
+    receiver_name = (SELECT name FROM public.riders WHERE id = auth.uid())
+    OR
+    group_id IS NOT NULL
+);

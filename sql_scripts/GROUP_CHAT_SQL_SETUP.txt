@@ -1,0 +1,39 @@
+-- SQL SETUP FOR GROUP CHAT SYSTEM
+-- Execute this in your Supabase SQL Editor
+
+-- 1. Create Chat Groups Table
+CREATE TABLE chat_groups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Create Group Members Table
+CREATE TABLE group_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    group_id UUID REFERENCES chat_groups(id) ON DELETE CASCADE,
+    rider_name TEXT NOT NULL,
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. Update Chats Table to support Groups
+-- Note: Check if column already exists if you've run this before
+ALTER TABLE chats ADD COLUMN group_id UUID REFERENCES chat_groups(id) ON DELETE CASCADE;
+
+-- 4. Enable Real-time for new tables
+-- This ensures users see new groups and messages instantly
+ALTER PUBLICATION supabase_realtime ADD TABLE chat_groups;
+ALTER PUBLICATION supabase_realtime ADD TABLE group_members;
+
+-- 5. Helpful View for Messenger (Optional but Recommended)
+-- This helps in listing groups a specific rider belongs to
+CREATE OR REPLACE VIEW rider_groups AS
+SELECT 
+    cg.id as group_id,
+    cg.name as group_name,
+    cg.image_url as group_image,
+    gm.rider_name
+FROM chat_groups cg
+JOIN group_members gm ON cg.id = gm.group_id;

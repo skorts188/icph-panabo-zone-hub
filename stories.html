@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Cinematic Stories</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .stories-hero {
+            background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('assets/cover.jpg') center/cover;
+            padding: 60px 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(227, 6, 19, 0.2);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .stories-hero::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(45deg, transparent, rgba(227, 6, 19, 0.05), transparent);
+            animation: moveShine 5s infinite linear;
+        }
+        @keyframes moveShine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+        .stories-grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+            padding-bottom: 50px;
+        }
+
+        @media (max-width: 600px) {
+            .stories-hero { padding: 30px 20px; margin-bottom: 20px; }
+            .stories-hero h1 { font-size: 1.2rem !important; }
+            .stories-grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .story-card { height: 280px !important; }
+        }
+
+        /* Story Viewer Enhancements for Dedicated Page */
+        #story-viewer-modal { background: rgba(0,0,0,0.98); }
+        
+        .upload-floating-btn {
+            position: fixed; bottom: 85px; right: 20px;
+            width: 60px; height: 60px; background: var(--honda-red);
+            color: white; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 1.5rem; box-shadow: 0 5px 20px rgba(227, 6, 19, 0.5);
+            z-index: 1000; cursor: pointer; border: 2px solid rgba(255,255,255,0.2);
+            transition: 0.3s;
+        }
+        .upload-floating-btn:hover { transform: scale(1.1) rotate(90deg); }
+    </style>
+</head>
+
+<body class="dark-mode">
+    <main class="main-stage">
+        <div class="content-scroll">
+            <div style="max-width: 1200px; margin: 0 auto; width: 100%;">
+                
+                <div class="stories-hero">
+                    <h1 style="font-family:'Orbitron'; letter-spacing:6px; color:white; margin-bottom:10px; font-weight:900;">CINEMATIC STORIES</h1>
+                    <p style="font-size:0.75rem; color:var(--honda-red); letter-spacing:4px; font-family:'Orbitron';">REAL-TIME RIDER UPDATES</p>
+                </div>
+
+                <div id="stories-loading" style="text-align:center; padding:100px;">
+                    <i class="fas fa-circle-notch fa-spin" style="font-size:3rem; color:var(--honda-red);"></i>
+                    <p style="margin-top:20px; font-family:'Orbitron'; font-size:0.7rem; letter-spacing:2px; color:#444;">SYNCING DATA STREAM...</p>
+                </div>
+
+                <div id="stories-grid-full" class="stories-grid-container">
+                    <!-- Consolidated Cards Injected Here -->
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Floating Upload (Mobile & Desktop) -->
+    <div class="upload-floating-btn" onclick="document.getElementById('story-file-main').click()">
+        <i class="fas fa-plus"></i>
+        <input type="file" id="story-file-main" class="hidden" onchange="postStory(this)">
+    </div>
+
+    <!-- Re-using the Elite Story Viewer Modal -->
+    <div id="story-viewer-modal" class="hidden" onmousemove="resetStoryControlsTimer()" ontouchstart="resetStoryControlsTimer()" onclick="resetStoryControlsTimer()">
+        <div class="story-v-main">
+            <div class="story-progress-container" id="story-progress-bars"></div>
+            <span class="story-close" onclick="closeStoryViewer()">&times;</span>
+            <div class="story-nav-btn" style="left:10px;" onclick="prevStory()"><i class="fas fa-chevron-left"></i></div>
+            <div class="story-nav-btn" style="right:10px;" onclick="nextStory()"><i class="fas fa-chevron-right"></i></div>
+            <div id="story-media-container" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#000;"></div>
+            
+            <div id="story-video-ctrls" class="story-video-controls hidden">
+                <i class="fas fa-pause story-ctrl-btn" id="story-play-btn" onclick="toggleStoryPlay()"></i>
+                <i class="fas fa-volume-up story-ctrl-btn" id="story-mute-btn" onclick="toggleStoryMute()"></i>
+                <input type="range" class="volume-slider" id="story-volume-slider" min="0" max="1" step="0.1" value="1" oninput="changeStoryVolume(this.value)">
+            </div>
+        </div>
+        <div class="story-v-sidebar">
+            <div class="story-v-header" id="story-header-info"></div>
+            <div class="story-v-comments" id="story-comments-list"></div>
+            <div class="story-v-input">
+                <input type="text" id="story-comment-input" placeholder="Reply..." onkeypress="if(event.key==='Enter') postStoryComment()"><i class="fas fa-paper-plane" onclick="postStoryComment()"></i>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let groupedStories = new Map(), allStoryGroups = [], currentGroupIndex = 0, currentStoryIndex = 0, currentStoryId = null, storyControlsTimeout;
+
+        function resetStoryControlsTimer() {
+            const main = document.querySelector('.story-v-main');
+            if (!main) return;
+            main.classList.remove('hide-interface');
+            clearTimeout(storyControlsTimeout);
+            storyControlsTimeout = setTimeout(() => {
+                main.classList.add('hide-interface');
+            }, 3000);
+        }
+
+        async function loadStoriesGrid() {
+            const { data, error } = await sb.from('stories').select('*').order('created_at', { ascending: false });
+            if (error) return console.error("Data Stream Error:", error);
+
+            const grid = document.getElementById('stories-grid-full');
+            const loading = document.getElementById('stories-loading');
+            if (!grid) return;
+            
+            if (loading) loading.classList.add('hidden');
+            grid.innerHTML = ''; 
+
+            if (!data || data.length === 0) {
+                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:100px; color:#444;">No active stories.</div>';
+                return;
+            }
+
+            // Logic Core: Strict Unique Grouping Protocol
+            groupedStories = new Map();
+            data.forEach(s => {
+                const name = s.rider_name;
+                if (!groupedStories.has(name)) {
+                    groupedStories.set(name, []);
+                }
+                groupedStories.get(name).push(s);
+            });
+
+            allStoryGroups = Array.from(groupedStories.keys());
+            const seenStories = JSON.parse(localStorage.getItem('icph_seen_stories') || '[]');
+            
+            let gridHTML = '';
+            // Bug Hunter X: Iterating strictly through unique keys (Riders)
+            allStoryGroups.forEach(name => {
+                const stories = groupedStories.get(name);
+                const latest = stories[0];
+                const unseenStories = stories.filter(s => !seenStories.includes(s.id));
+                const unseenCount = unseenStories.length;
+                const isV = latest.image_url.match(/\.(mp4|webm|mov)$/i);
+                
+                gridHTML += `
+                    <div class="story-card ${unseenCount === 0 ? 'seen' : ''}" style="height:320px;" onclick="openUserStories('${name}')">
+                        ${isV ? `<video src="${latest.image_url}"></video>` : `<img src="${latest.image_url}">`}
+                        <div class="story-card-overlay">
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-weight:900; font-size:0.9rem;">${name}</span>
+                                <span style="font-size:0.6rem; opacity:0.6;">${stories.length} uploads</span>
+                            </div>
+                            ${unseenCount > 0 ? `<div class="story-count-badge" id="badge-${name}">${unseenCount}</div>` : ''}
+                        </div>
+                    </div>`;
+            });
+            grid.innerHTML = gridHTML;
+        }
+
+        // Data Detective: Real-time Synchronization Listener
+        function initStoriesRealtime() {
+            sb.channel('stories-global').on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => {
+                console.log("⚡ Real-time Sync: Stories Updated");
+                loadStoriesGrid();
+            }).subscribe();
+        }
+
+        function openUserStories(name) {
+            currentGroupIndex = allStoryGroups.indexOf(name);
+            currentStoryIndex = 0;
+            displayCurrentStory();
+        }
+
+        async function displayCurrentStory() {
+            resetStoryControlsTimer();
+            const riderName = allStoryGroups[currentGroupIndex];
+            const group = groupedStories.get(riderName);
+            if (!group) return closeStoryViewer();
+            
+            const s = group[currentStoryIndex];
+            if (!s) return closeStoryViewer();
+            
+            // Mark as Seen
+            let seenStories = JSON.parse(localStorage.getItem('icph_seen_stories') || '[]');
+            if (!seenStories.includes(s.id)) {
+                seenStories.push(s.id);
+                localStorage.setItem('icph_seen_stories', JSON.stringify(seenStories));
+                const badge = document.getElementById(`badge-${riderName}`);
+                if (badge) {
+                    const currentUnseen = group.filter(st => !seenStories.includes(st.id)).length;
+                    if (currentUnseen > 0) badge.innerText = currentUnseen;
+                    else badge.remove();
+                }
+            }
+
+            document.getElementById('story-viewer-modal').classList.remove('hidden');
+            const bars = document.getElementById('story-progress-bars'); bars.innerHTML = '';
+            group.forEach((_, i) => { 
+                const b = document.createElement('div'); 
+                b.className = 'story-progress-bar'; 
+                b.innerHTML = `<div class="story-progress-inner ${i < currentStoryIndex ? 'viewed' : ''}"></div>`; 
+                bars.appendChild(b); 
+            });
+
+            const container = document.getElementById('story-media-container');
+            const isV = s.image_url.match(/\.(mp4|webm|mov)$/i);
+            const ctrls = document.getElementById('story-video-ctrls');
+            
+            if (isV) {
+                container.innerHTML = `<video src="${s.image_url}" id="story-video" autoplay playsinline style="max-width:100%; max-height:100%;"></video>`;
+                ctrls.classList.remove('hidden');
+                const v = document.getElementById('story-video');
+                v.onended = () => nextStory();
+                v.onerror = () => { console.error("Video Load Failed"); nextStory(); };
+            } else {
+                container.innerHTML = `<img src="${s.image_url}" style="max-width:100%; max-height:100%; object-fit:contain;">`;
+                ctrls.classList.add('hidden');
+                setTimeout(() => { if (currentStoryId === s.id) nextStory(); }, 5000);
+            }
+            
+            const canDelete = profile && (profile.name === s.rider_name || profile.is_admin || profile.is_super_admin);
+            document.getElementById('story-header-info').innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <b style="color:white; font-size:1.1rem; letter-spacing:1px;">${s.rider_name}</b>
+                    <span style="font-size:0.6rem; color:#666;">${new Date(s.created_at).toLocaleTimeString()}</span>
+                </div>
+                ${canDelete ? `<i class="fas fa-trash-alt" style="color:#e30613; cursor:pointer; margin-left:15px;" onclick="deleteCurrentStory()"></i>` : ''}
+            `;
+            
+            currentStoryId = s.id;
+            loadStoryComments(s.id);
+        }
+
+        function nextStory() {
+            const group = groupedStories.get(allStoryGroups[currentGroupIndex]);
+            if (!group) return closeStoryViewer();
+            
+            if (currentStoryIndex < group.length - 1) {
+                currentStoryIndex++;
+                displayCurrentStory();
+            } else if (currentGroupIndex < allStoryGroups.length - 1) {
+                currentGroupIndex++;
+                currentStoryIndex = 0;
+                displayCurrentStory();
+            } else {
+                closeStoryViewer();
+            }
+        }
+
+        function prevStory() {
+            if (currentStoryIndex > 0) {
+                currentStoryIndex--;
+                displayCurrentStory();
+            } else if (currentGroupIndex > 0) {
+                currentGroupIndex--;
+                const group = groupedStories.get(allStoryGroups[currentGroupIndex]);
+                currentStoryIndex = group.length - 1;
+                displayCurrentStory();
+            }
+        }
+
+        function closeStoryViewer() {
+            document.getElementById('story-viewer-modal').classList.add('hidden');
+            currentStoryId = null;
+            clearTimeout(storyControlsTimeout);
+            loadStoriesGrid(); // Refresh grid seen states
+        }
+
+        async function postStory(input) {
+            if (isGuest) return alert("Riders only!");
+            const file = input.files[0];
+            if (!file) return;
+            
+            const loadingToast = document.createElement('div');
+            loadingToast.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--honda-red); color:white; padding:10px 20px; border-radius:5px; z-index:99999; font-family:'Orbitron'; font-size:0.7rem;";
+            loadingToast.innerHTML = '<i class="fas fa-spinner fa-spin"></i> UPLOADING STORY...';
+            document.body.appendChild(loadingToast);
+
+            try {
+                const path = `stories/${Date.now()}_${file.name}`;
+                const { error: uploadError } = await sb.storage.from('rides').upload(path, file);
+                if (uploadError) throw uploadError;
+
+                const url = sb.storage.from('rides').getPublicUrl(path).data.publicUrl;
+                await sb.from('stories').insert([{ rider_name: profile.name, image_url: url }]);
+                loadingToast.innerHTML = '<i class="fas fa-check"></i> STORY DEPLOYED!';
+                setTimeout(() => loadingToast.remove(), 2000);
+                loadStoriesGrid();
+            } catch (err) {
+                loadingToast.style.background = "#800";
+                loadingToast.innerHTML = '<i class="fas fa-times"></i> UPLOAD FAILED';
+                setTimeout(() => loadingToast.remove(), 3000);
+            }
+        }
+
+        async function deleteCurrentStory() {
+            if (!currentStoryId) return;
+            if (!confirm("ERASE THIS MEMORY PERMANENTLY?")) return;
+            await sb.from('stories').delete().eq('id', currentStoryId);
+            nextStory();
+        }
+
+        // --- Video Control Logic ---
+        function toggleStoryPlay() {
+            const v = document.getElementById('story-video'), btn = document.getElementById('story-play-btn');
+            if (!v || !btn) return;
+            if (v.paused) { v.play(); btn.className = 'fas fa-pause story-ctrl-btn'; }
+            else { v.pause(); btn.className = 'fas fa-play story-ctrl-btn'; }
+        }
+        function toggleStoryMute() {
+            const v = document.getElementById('story-video'), btn = document.getElementById('story-mute-btn');
+            if (!v || !btn) return;
+            v.muted = !v.muted;
+            btn.className = v.muted ? 'fas fa-volume-mute story-ctrl-btn' : 'fas fa-volume-up story-ctrl-btn';
+        }
+        function changeStoryVolume(val) {
+            const v = document.getElementById('story-video');
+            if (v) v.volume = val;
+        }
+
+        async function loadStoryComments(sid) {
+            const { data } = await sb.from('story_comments').select('*').eq('story_id', sid).order('created_at', { ascending: true });
+            const list = document.getElementById('story-comments-list');
+            if (list) {
+                list.innerHTML = data?.map(c => {
+                    const riderName = allStoryGroups[currentGroupIndex];
+                    const canDelete = profile && (profile.name === c.rider_name || profile.name === riderName || profile.is_admin || profile.is_super_admin);
+                    return `
+                        <div style="padding:8px 0; border-bottom:1px solid #111; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <b style="color:var(--honda-red); font-size:0.7rem;">${c.rider_name}</b>: 
+                                <span style="font-size:0.75rem; color:#ccc;">${c.text}</span>
+                            </div>
+                            ${canDelete ? `<i class="fas fa-trash-alt" style="color:#444; cursor:pointer; font-size:0.6rem; margin-left:10px;" onclick="deleteStoryComment('${c.id}')"></i>` : ''}
+                        </div>`;
+                }).join('') || '';
+            }
+        }
+
+        async function deleteStoryComment(cid) {
+            if (!confirm("PURGE THIS REPLY?")) return;
+            const { error } = await sb.from('story_comments').delete().eq('id', cid);
+            if (!error) await loadStoryComments(currentStoryId);
+        }
+
+        async function postStoryComment() {
+            const input = document.getElementById('story-comment-input');
+            const val = input.value.trim();
+            if (!val || !currentStoryId) return;
+            
+            // Logic Core: Prevent double-submission and provide feedback
+            const originalPlaceholder = input.placeholder;
+            input.disabled = true;
+            input.placeholder = "SENDING...";
+
+            try {
+                const { error } = await sb.from('story_comments').insert([{ 
+                    story_id: currentStoryId, 
+                    rider_name: profile.name, 
+                    text: val 
+                }]);
+                
+                if (error) throw error;
+
+                // Logic Core: Trigger In-App Notification
+                const storyOwner = allStoryGroups[currentGroupIndex];
+                if (storyOwner !== profile.name) {
+                    await sb.from('notifications').insert([{
+                        receiver_name: storyOwner,
+                        sender_name: profile.name,
+                        message: `replied to your story: "${val.substring(0, 20)}${val.length > 20 ? '...' : ''}"`,
+                        type: 'story_comment',
+                        target_id: currentStoryId
+                    }]);
+                }
+
+                input.value = '';
+                input.placeholder = "REPLY SENT!";
+                setTimeout(() => {
+                    input.placeholder = originalPlaceholder;
+                    input.disabled = false;
+                    input.focus();
+                }, 1500);
+
+                await loadStoryComments(currentStoryId);
+            } catch (err) {
+                console.error("Story Comment Error:", err);
+                input.placeholder = "FAILED TO SEND";
+                input.disabled = false;
+                setTimeout(() => { input.placeholder = originalPlaceholder; }, 3000);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            const check = setInterval(() => {
+                if (profile) { 
+                    clearInterval(check); 
+                    loadStoriesGrid(); 
+                    initStoriesRealtime();
+                }
+            }, 500);
+        });
+    </script>
+</body>
+
+</html>

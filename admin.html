@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Admin Panel</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, var(--honda-red), #550000);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(227, 6, 19, 0.2);
+        }
+        .admin-stat-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .admin-stat-card h4 { font-family: 'Orbitron'; font-size: 0.7rem; color: #888; margin-bottom: 5px; }
+        .admin-stat-card span { font-size: 1.5rem; font-weight: 800; color: #fff; }
+        
+        .rider-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 20px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            transition: 0.3s;
+        }
+        .rider-row:hover { background: rgba(255,255,255,0.04); border-color: #333; }
+        
+        .admin-select {
+            background: #111;
+            border: 1px solid #222;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+        }
+        .admin-select:focus { border-color: var(--honda-red); }
+        
+        .ban-btn {
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            cursor: pointer;
+            border: none;
+            transition: 0.3s;
+        }
+        .ban-btn.active { background: #31a24c; color: #fff; }
+        .ban-btn.inactive { background: rgba(255,255,255,0.05); color: #888; border: 1px solid #333; }
+        .ban-btn:hover { filter: brightness(1.2); }
+
+        .admin-action-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #222;
+            color: #666;
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .admin-action-btn:hover { color: #fff; border-color: #444; background: rgba(255,255,255,0.08); }
+        .admin-action-btn.delete:hover { background: var(--honda-red); border-color: var(--honda-red); color: white; }
+
+        /* Mobile Optimization (V37.6) */
+        @media (max-width: 600px) {
+            .admin-header {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px;
+                gap: 15px;
+            }
+            .admin-header div { text-align: center !important; }
+            
+            .admin-stat-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+
+            .roster-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch !important;
+            }
+            #admin-search { width: 100% !important; }
+
+            .rider-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+                padding: 20px;
+            }
+            .rider-actions {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-top: 1px solid rgba(255,255,255,0.05);
+                padding-top: 15px;
+            }
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <main class="main-stage" style="padding-bottom: 100px;">
+        <div class="content-scroll">
+            <!-- Loading State -->
+            <div id="admin-loading" style="text-align:center; padding:100px 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size:3rem; color:var(--honda-red); margin-bottom:20px;"></i>
+                <h3 style="font-family:'Orbitron'; letter-spacing:3px;">VERIFYING ACCESS...</h3>
+            </div>
+
+            <!-- Denied Access -->
+            <div id="admin-denied" class="hidden" style="text-align:center; padding:100px 20px;">
+                <div style="background:rgba(227, 6, 19, 0.1); width:120px; height:120px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 30px; border:2px solid var(--honda-red);">
+                    <i class="fas fa-shield-alt" style="font-size:3.5rem; color:var(--honda-red);"></i>
+                </div>
+                <h1 style="font-family:'Orbitron'; font-size:2rem; letter-spacing:5px; color:white; margin-bottom:15px;">ACCESS DENIED</h1>
+                <p style="color:#666; max-width:400px; margin:0 auto;">Only authorized personnel with Admin clearance are permitted to access the Command Center.</p>
+                <button class="btn-neon" style="margin-top:40px; width:200px;" onclick="window.location.href='index.html'">RETURN TO HUB</button>
+            </div>
+
+            <!-- Admin Panel Content -->
+            <div id="admin-main" class="hidden">
+                <div style="max-width: 900px; margin: 0 auto; padding: 0 15px;">
+                    
+                    <div class="admin-header">
+                        <div>
+                            <h2 style="font-family:'Orbitron'; letter-spacing:3px; color:white; margin-bottom:5px;">COMMAND CENTER</h2>
+                            <p style="font-size:0.8rem; color:rgba(255,255,255,0.6);">Global rider management and role assignment.</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <div id="total-riders-badge" style="background:rgba(0,0,0,0.3); padding:8px 15px; border-radius:20px; font-size:0.75rem; font-weight:800; font-family:'Orbitron';">0 RIDERS ENROLLED</div>
+                        </div>
+                    </div>
+
+                    <div class="admin-stat-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:30px;">
+                        <div class="admin-stat-card"><h4>ASPIRANTS</h4><span id="stat-aspirant">0</span></div>
+                        <div class="admin-stat-card"><h4>OFFICIALS</h4><span id="stat-official">0</span></div>
+                        <div class="admin-stat-card"><h4>ADMINS</h4><span id="stat-admin">0</span></div>
+                        <div class="admin-stat-card"><h4>BANNED</h4><span id="stat-banned">0</span></div>
+                    </div>
+
+                    <div class="glass-card" style="padding:0; border:none; background:transparent;">
+                        <div class="roster-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding:0 5px;">
+                            <h4 style="font-family:'Orbitron'; font-size:0.8rem; color:var(--honda-red); letter-spacing:2px;">RIDER ROSTER</h4>
+                            <input type="text" id="admin-search" class="input-dark" style="width:250px; margin-bottom:0; font-size:0.75rem; padding:8px 15px;" placeholder="Search riders..." oninput="filterRiders()">
+                        </div>
+                        
+                        <div id="rider-list-cont">
+                            <!-- Rider rows here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        let allRiders = [];
+
+        async function initAdmin() {
+            const loader = document.getElementById('admin-loading');
+            const main = document.getElementById('admin-main');
+            const denied = document.getElementById('admin-denied');
+
+            const checkSession = setInterval(async () => {
+                if (typeof profile !== 'undefined' && profile !== null) {
+                    clearInterval(checkSession);
+                    
+                    loader.classList.add('hidden');
+
+                    if (!profile.is_admin && !profile.is_super_admin) {
+                        denied.classList.remove('hidden');
+                        return;
+                    }
+
+                    main.classList.remove('hidden');
+                    await loadRiders();
+                    initAdminRealtime();
+                }
+            }, 100);
+
+            setTimeout(() => {
+                if (loader && !loader.classList.contains('hidden')) {
+                    clearInterval(checkSession);
+                    loader.innerHTML = `
+                        <i class="fas fa-exclamation-triangle" style="font-size:3rem; color:var(--honda-red); margin-bottom:20px;"></i>
+                        <h3 style="font-family:'Orbitron';">SESSION TIMEOUT</h3>
+                        <p style="color:#666; font-size:0.8rem; margin-top:10px;">Please try to refresh or login again.</p>
+                        <button class="btn-neon" style="margin-top:20px; width:150px;" onclick="window.location.reload()">REFRESH</button>
+                    `;
+                }
+            }, 5000);
+        }
+
+        async function loadRiders() {
+            const { data, error } = await sb.from('riders').select('*').order('name');
+            if(error) return console.error(error);
+            allRiders = data || [];
+            renderRiders(allRiders);
+            updateStats(allRiders);
+        }
+
+        function updateStats(riders) {
+            document.getElementById('total-riders-badge').innerText = `${riders.length} RIDERS ENROLLED`;
+            document.getElementById('stat-aspirant').innerText = riders.filter(r => !r.is_admin && !r.is_super_admin && (!r.rank || r.rank === 'Aspirant')).length;
+            document.getElementById('stat-official').innerText = riders.filter(r => r.rank === 'Official').length;
+            document.getElementById('stat-admin').innerText = riders.filter(r => r.is_admin).length;
+            document.getElementById('stat-banned').innerText = riders.filter(r => r.is_banned).length;
+        }
+
+        function renderRiders(list) {
+            const cont = document.getElementById('rider-list-cont');
+            cont.innerHTML = '';
+            
+            list.forEach(r => {
+                const row = document.createElement('div');
+                row.className = 'rider-row';
+                
+                let currentRank = r.rank || 'Aspirant';
+                if(r.is_super_admin) currentRank = 'Superadmin';
+                else if(r.is_admin) currentRank = 'Admin';
+
+                row.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:15px; flex:1;">
+                        ${getAvatarHTML(r.name, r.avatar_url, "style='width:45px; height:45px; border:1px solid #333;'")}
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <b style="color:white; font-size:0.95rem;">${r.name}</b>
+                                ${getBadgeHTML(r.rank, r.is_super_admin, r.name)}
+                            </div>
+                            <small style="color:#555; font-size:0.65rem;">ID: ${r.id.substring(0,8)}... | ${r.motorcycle_model || 'No Ride Listed'}</small>
+                        </div>
+                    </div>
+                    
+                    <div class="rider-actions" style="display:flex; align-items:center; gap:12px;">
+                        <select class="admin-select" onchange="updateRank('${r.id}', this.value)">
+                            <option value="Aspirant" ${currentRank==='Aspirant'?'selected':''}>Aspirant</option>
+                            <option value="Official" ${currentRank==='Official'?'selected':''}>Official</option>
+                            <option value="Admin" ${currentRank==='Admin'?'selected':''}>Admin</option>
+                            <option value="Superadmin" ${currentRank==='Superadmin'?'selected':''}>Superadmin</option>
+                        </select>
+                        
+                        <button class="ban-btn ${r.is_banned?'active':'inactive'}" onclick="toggleBan('${r.id}', ${!r.is_banned})">
+                            ${r.is_banned ? 'BANNED' : 'ACTIVE'}
+                        </button>
+
+                        ${(!r.is_super_admin || profile.is_super_admin) ? `
+                        <button class="admin-action-btn" title="Reset Password" onclick="resetPassword('${r.id}', '${r.name}', ${r.is_super_admin})">
+                            <i class="fas fa-key"></i>
+                        </button>
+
+                        <button class="admin-action-btn delete" onclick="deleteRider('${r.id}', '${r.name}', ${r.is_super_admin})">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                `;
+                cont.appendChild(row);
+            });
+        }
+
+        async function resetPassword(id, name, targetIsSuperAdmin) {
+            if (targetIsSuperAdmin && !profile.is_super_admin) {
+                return alert("Access Denied: Only a Superadmin can reset another Superadmin's password.");
+            }
+
+            const masterCode = prompt(`🔑 RESET PASSWORD FOR ${name.toUpperCase()}\nEnter Master Override Code:`);
+            if (masterCode !== 'iangwapo') return alert("Invalid Master Code.");
+
+            const newPass = prompt(`Enter new password for ${name}:`);
+            if (!newPass || newPass.length < 6) return alert("Password too short.");
+
+            const { data, error } = await sb.rpc('update_user_password_admin', { 
+                target_user_id: id, 
+                new_password: newPass 
+            });
+
+            if (error) alert("Error resetting password: " + error.message);
+            else alert(`✅ Password for ${name} updated successfully!`);
+        }
+
+        async function updateRank(id, newRank) {
+            const is_admin = newRank === 'Admin' || newRank === 'Superadmin';
+            const is_super_admin = newRank === 'Superadmin';
+            
+            const { error } = await sb.from('riders').update({ 
+                rank: newRank,
+                is_admin: is_admin,
+                is_super_admin: is_super_admin
+            }).eq('id', id);
+
+            if(error) alert("Update failed: " + error.message);
+        }
+
+        async function toggleBan(id, banStatus) {
+            const { error } = await sb.from('riders').update({ is_banned: banStatus }).eq('id', id);
+            if(error) alert("Action failed: " + error.message);
+        }
+
+        async function deleteRider(id, name, targetIsSuperAdmin) {
+            if (targetIsSuperAdmin && !profile.is_super_admin) {
+                return alert("Access Denied: Only a Superadmin can delete another Superadmin account.");
+            }
+
+            const confirmDelete = confirm(`⚠️ DANGER ZONE: Permanently wipe ${name} from the database?`);
+            if(!confirmDelete) return;
+
+            const masterCode = prompt("Enter Master Override Code:");
+            if(masterCode !== 'iangwapo') return alert("Invalid Code.");
+
+            const { data, error } = await sb.rpc('delete_user_completely_admin', { target_user_id: id });
+            if(error) alert("Error deleting user: " + error.message);
+            else alert("Rider purged successfully.");
+        }
+
+        function filterRiders() {
+            const term = document.getElementById('admin-search').value.toLowerCase();
+            const rows = document.querySelectorAll('.rider-row');
+            rows.forEach(row => {
+                const name = row.querySelector('b').innerText.toLowerCase();
+                row.style.display = name.includes(term) ? 'flex' : 'none';
+            });
+        }
+
+        function initAdminRealtime() {
+            sb.channel('admin-sync')
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
+                  loadRiders();
+              })
+              .subscribe();
+        }
+
+        document.addEventListener('DOMContentLoaded', initAdmin);
+    </script>
+</body>
+</html>

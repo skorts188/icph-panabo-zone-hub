@@ -1,0 +1,41 @@
+-- SETUP FOR FOLLOWS AND FRIENDSHIPS SYSTEM
+-- VERSION: V27.0 (Development)
+
+-- CREATE FOLLOWS TABLE
+CREATE TABLE IF NOT EXISTS public.follows (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    follower_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    follower_name TEXT,
+    following_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    following_name TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(follower_id, following_id)
+);
+
+-- CREATE FRIENDSHIPS TABLE
+CREATE TABLE IF NOT EXISTS public.friendships (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    sender_name TEXT,
+    receiver_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    receiver_name TEXT,
+    status TEXT DEFAULT 'pending'::text,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(sender_id, receiver_id)
+);
+
+-- ENABLE REAL-TIME
+ALTER TABLE public.follows REPLICA IDENTITY FULL;
+ALTER TABLE public.friendships REPLICA IDENTITY FULL;
+
+-- ENABLE RLS (ROW LEVEL SECURITY)
+ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
+
+-- POLICIES FOR FOLLOWS
+CREATE POLICY "Anyone can view follows" ON public.follows FOR SELECT USING (true);
+CREATE POLICY "Users can manage their own follows" ON public.follows FOR ALL USING (auth.uid() = follower_id);
+
+-- POLICIES FOR FRIENDSHIPS
+CREATE POLICY "Anyone can view friendships" ON public.friendships FOR SELECT USING (true);
+CREATE POLICY "Users can manage their own friendships" ON public.friendships FOR ALL USING (auth.uid() = sender_id OR auth.uid() = receiver_id);

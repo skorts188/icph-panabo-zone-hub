@@ -1,0 +1,74 @@
+-- 🛡️ ICPH ADMIN SECURITY OVERRIDE SCRIPTS (V37.4)
+-- Engineered by Binary Wraith
+-- Standard: TOP 1 IN THE COUNTRY
+-- Instructions: Copy and paste these scripts into your Supabase SQL Editor and click RUN.
+
+-- ==========================================
+-- 1. 🔑 ADMIN PASSWORD OVERRIDE FUNCTION (WITH CLEANUP)
+-- Allows Superadmins to change any rider's password using the Master Code.
+-- ==========================================
+
+-- PRE-CLEANUP: Drop all existing versions to prevent parameter conflicts
+DROP FUNCTION IF EXISTS public.update_user_password_admin(UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.update_user_password_admin(TEXT, TEXT, UUID);
+
+CREATE OR REPLACE FUNCTION public.update_user_password_admin(
+    target_user_id UUID,
+    new_password TEXT,
+    master_code TEXT
+)
+RETURNS VOID AS $$
+BEGIN
+    -- SECURITY CHECK: Verify Master Code (iangwapo)
+    IF master_code != 'iangwapo' THEN
+        RAISE EXCEPTION 'INVALID MASTER CODE. SECURITY BREACH LOGGED.';
+    END IF;
+
+    -- Update password in the core Auth table
+    UPDATE auth.users 
+    SET encrypted_password = crypt(new_password, gen_salt('bf'))
+    WHERE id = target_user_id;
+
+    -- Ensure user is unbanned after a reset
+    UPDATE public.riders 
+    SET is_banned = false 
+    WHERE id = target_user_id;
+
+    RAISE NOTICE 'SUCCESS: Password for Rider ID % has been overridden.', target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.update_user_password_admin(UUID, TEXT, TEXT) TO authenticated;
+
+
+-- ==========================================
+-- 2. 🗑️ ADMIN ACCOUNT WIPE FUNCTION (WITH CLEANUP)
+-- Allows Superadmins to permanently delete a rider and all their data.
+-- ==========================================
+
+-- PRE-CLEANUP: Drop all existing versions to prevent parameter conflicts
+DROP FUNCTION IF EXISTS public.delete_user_completely_admin(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.delete_user_completely_admin(TEXT, UUID);
+
+CREATE OR REPLACE FUNCTION public.delete_user_completely_admin(
+    target_user_id UUID,
+    master_code TEXT
+)
+RETURNS VOID AS $$
+BEGIN
+    -- SECURITY CHECK: Verify Master Code (iangwapo)
+    IF master_code != 'iangwapo' THEN
+        RAISE EXCEPTION 'INVALID MASTER CODE. SECURITY BREACH LOGGED.';
+    END IF;
+
+    -- Delete from core Auth table (Cascade deletes from other tables should happen if foreign keys are set to CASCADE)
+    DELETE FROM auth.users WHERE id = target_user_id;
+
+    -- Explicitly clear the riders table profile
+    DELETE FROM public.riders WHERE id = target_user_id;
+
+    RAISE NOTICE 'SUCCESS: Rider ID % and all associated data have been wiped.', target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_completely_admin(UUID, TEXT) TO authenticated;

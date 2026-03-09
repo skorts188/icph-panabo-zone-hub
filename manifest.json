@@ -1,0 +1,23 @@
+{
+  "name": "ICPH Panabo Zone Hub",
+  "short_name": "ICPH Hub",
+  "description": "Official community portal for ICPH Panabo riders.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#e30613",
+  "icons": [
+    {
+      "src": "assets/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

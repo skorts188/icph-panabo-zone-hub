@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Community Feed</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        #reactors-modal,
+        .post-extra-modal {
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 50000;
+            display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+        }
+        .post-extra-card {
+            background: #111; border: 1px solid #222; border-radius: 15px; width: 350px; padding: 20px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+        .feeling-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; }
+        .feeling-item { padding: 10px; background: rgba(255, 255, 255, 0.03); border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; transition: 0.3s; }
+        .feeling-item:hover { background: rgba(255, 255, 255, 0.1); }
+        .post-status-tag { font-size: 0.75rem; color: #888; font-weight: normal; margin-left: 5px; }
+        #reactors-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 50000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .reactors-card { background: #111; border: 1px solid #222; border-radius: 15px; width: 400px; max-height: 500px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); }
+        .reactors-header { padding: 15px 20px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; font-family: 'Orbitron'; font-size: 0.8rem; letter-spacing: 2px; color: var(--honda-red); }
+        .reactors-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .reactor-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+        .reactor-item:hover { background: rgba(255, 255, 255, 0.05); }
+        .feed-hero-banner { width: 100%; height: 350px; position: relative; overflow: hidden; border-radius: 20px; margin-bottom: 25px; background: #000; display: flex; align-items: flex-start; justify-content: center; }
+        .banner-img { position: absolute; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; opacity: 0.7; }
+        .banner-overlay { position: relative; z-index: 2; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.3) 40%, rgba(0, 0, 0, 0.1) 100%); display: flex; flex-direction: column; align-items: center; padding: 40px 25px; }
+        .banner-title { font-family: 'Orbitron'; font-size: 1.4rem; color: white; font-weight: 900; letter-spacing: 4px; margin-bottom: 5px; text-shadow: 0 0 15px rgba(0, 0, 0, 0.8); }
+        .banner-subtitle { font-family: 'Orbitron'; font-size: 0.65rem; color: var(--honda-red); letter-spacing: 6px; font-weight: 700; }
+        
+        /* Story Viewer Centered Controls */
+        .story-progress-container { position: absolute; top: 15px; left: 10px; right: 10px; display: flex; gap: 4px; z-index: 100; }
+        .story-progress-bar { height: 2px; flex: 1; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; }
+        .story-progress-inner { height: 100%; width: 0%; background: #fff; transition: width linear; }
+        .story-progress-inner.viewed { width: 100%; }
+        
+        .story-video-controls {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 20px; z-index: 101;
+            background: rgba(0,0,0,0.6); padding: 12px 25px; border-radius: 40px;
+            backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1);
+        }
+        .story-ctrl-btn { color: white; cursor: pointer; font-size: 1.1rem; }
+        .volume-slider { width: 80px; accent-color: var(--honda-red); cursor: pointer; }
+
+        .story-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; background: rgba(0,0,0,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; z-index: 100; }
+        .story-nav-btn:hover { background: rgba(227, 6, 19, 0.8); }
+
+        @keyframes badgePulse {
+            0% { transform: scale(1); box-shadow: 0 0 5px rgba(227, 6, 19, 0.5); }
+            50% { transform: scale(1.1); box-shadow: 0 0 15px rgba(227, 6, 19, 0.8); }
+            100% { transform: scale(1); box-shadow: 0 0 5px rgba(227, 6, 19, 0.5); }
+        }
+        .story-count-badge { 
+            position: absolute; top: 5px; right: 5px; background: var(--honda-red); color: white; 
+            font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; font-weight: 900; 
+            animation: badgePulse 2s infinite ease-in-out;
+        }
+
+        .share-opt { display: flex; align-items: center; gap: 12px; padding: 10px; font-size: 0.8rem; color: #ddd; cursor: pointer; transition: 0.2s; border-radius: 8px; }
+        .share-opt:hover { background: rgba(255,255,255,0.05); color: var(--honda-red); }
+        @media (max-width: 600px) {
+            .feed-hero-banner { height: 200px; } .banner-title { font-size: 1.1rem; }
+            .story-v-main { height: 60% !important; flex: none !important; }
+            .story-v-sidebar { width: 100% !important; height: 40% !important; border-left: none !important; border-top: 1px solid #1a1a1a !important; position: relative !important; z-index: 1000 !important; }
+            .story-v-input { position: sticky !important; bottom: 0 !important; z-index: 1001 !important; background: #0a0a0a !important; }
+        }
+
+        .story-v-main .story-progress-container, 
+        .story-v-main .story-video-controls, 
+        .story-v-main .story-nav-btn, 
+        .story-v-main .story-close {
+            transition: opacity 0.5s ease;
+        }
+        .story-v-main.hide-interface .story-progress-container,
+        .story-v-main.hide-interface .story-video-controls,
+        .story-v-main.hide-interface .story-nav-btn,
+        .story-v-main.hide-interface .story-close {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .comment-name, .comment-avatar { 
+            cursor: pointer; 
+            transition: opacity 0.2s ease; 
+        }
+        .comment-name:hover, .comment-avatar:hover { 
+            opacity: 0.7; 
+        }
+    </style>
+</head>
+
+<body class="dark-mode">
+    <!-- STATIC AUTH PORTAL -->
+    <div id="auth-overlay" class="hidden">
+        <style>
+            #auth-overlay { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(20,0,0,0.85) 0%, #000 100%), url('assets/cover.jpg') center/cover no-repeat; z-index: 99999; display: flex; align-items: center; justify-content: center; perspective: 1000px; overflow: hidden; }
+            #auth-overlay::before { content: ''; position: absolute; inset: -100%; background-image: linear-gradient(rgba(227, 6, 19, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(227, 6, 19, 0.08) 1px, transparent 1px); background-size: 40px 40px; transform: rotateX(60deg); animation: gridMove 15s linear infinite; z-index: 1; }
+            #auth-overlay::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(227, 6, 19, 0.03) 2px, transparent 3px); background-size: 100% 4px; pointer-events: none; z-index: 2; animation: scanline 10s linear infinite; }
+            
+            @keyframes gridMove { from { transform: rotateX(60deg) translateY(0); } to { transform: rotateX(60deg) translateY(40px); } }
+            @keyframes scanline { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+            @keyframes logoPulse { 0% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(227, 6, 19, 0.3)); } 100% { transform: scale(1.08); filter: drop-shadow(0 0 25px rgba(227, 6, 19, 0.8)); } }
+            @keyframes titleGlow { from { text-shadow: 0 0 5px rgba(255,255,255,0.1); } to { text-shadow: 0 0 15px rgba(227, 6, 19, 0.8); } }
+            @keyframes cyberGlitch { 0% { transform: translate(0); } 95% { transform: translate(0); } 96% { transform: translate(2px, -1px); text-shadow: 1px 0 #ff0000, -1px 0 #00ffff; } 98% { transform: translate(-2px, 1px); } 100% { transform: translate(0); text-shadow: none; } }
+            
+            .auth-card { position: relative; width: 90%; max-width: 400px; background: rgba(8, 8, 8, 0.9); backdrop-filter: blur(30px); border: 1px solid rgba(227, 6, 19, 0.3); border-radius: 4px; z-index: 10; padding: 45px 35px; text-align: center; box-shadow: 0 0 50px rgba(0,0,0,1), inset 0 0 20px rgba(227, 6, 19, 0.1); }
+            .auth-card::before { content: ''; position: absolute; top: -1px; left: 10%; width: 80%; height: 1px; background: linear-gradient(90deg, transparent, var(--honda-red), transparent); }
+            .auth-card::after { content: ''; position: absolute; bottom: -1px; left: 10%; width: 80%; height: 1px; background: linear-gradient(90deg, transparent, var(--honda-red), transparent); }
+            
+            .auth-logo { width: 110px; height: 110px; border-radius: 50%; border: 1px solid rgba(227, 6, 19, 0.5); padding: 5px; animation: logoPulse 2s infinite alternate ease-in-out; margin-bottom: 5px; }
+            .auth-title { font-family:'Orbitron'; font-size:1.6rem; letter-spacing:6px; color:white; font-weight: 900; margin-top:15px; animation: titleGlow 2s infinite alternate, cyberGlitch 6s infinite; }
+            .auth-subtitle { font-family:'Orbitron'; font-size:0.7rem; letter-spacing:12px; color:var(--honda-red); opacity: 0.8; margin-top: 5px; }
+            
+            .auth-tabs { display: flex; gap: 5px; margin: 30px 0 20px 0; background: rgba(255,255,255,0.02); padding: 5px; border-radius: 2px; }
+            .auth-tab { flex: 1; padding: 12px; font-family: 'Orbitron'; font-size: 0.65rem; color: #555; text-align: center; cursor: pointer; transition: 0.3s; border-radius: 2px; }
+            .auth-tab.active { color: white; background: rgba(227, 6, 19, 0.8); box-shadow: 0 0 15px rgba(227, 6, 19, 0.3); }
+            
+            .input-group { position: relative; margin-bottom: 15px; }
+            .input-group input { background: rgba(0,0,0,0.5); border: 1px solid #222; border-left: 2px solid var(--honda-red); color: white; padding: 14px 15px 14px 45px; width: 100%; outline: none; font-family: 'Orbitron'; font-size: 0.75rem; transition: 0.3s; }
+            .input-group input:focus { border-color: var(--honda-red); background: rgba(227, 6, 19, 0.05); box-shadow: 0 0 10px rgba(227, 6, 19, 0.1); }
+            .input-group i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--honda-red); font-size: 0.9rem; }
+            
+            .btn-neon { background: var(--honda-red); color: white; border: none; padding: 14px; width: 100%; font-family: 'Orbitron'; font-size: 0.8rem; font-weight: 900; letter-spacing: 3px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
+            .btn-neon:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(227, 6, 19, 0.5); filter: brightness(1.2); }
+            
+            .guest-protocol { margin-top: 25px; padding-top: 20px; border-top: 1px dashed #222; }
+            .btn-guest { background: transparent; color: #888; border: 1px solid #333; padding: 10px; width: 100%; font-family: 'Orbitron'; font-size: 0.65rem; letter-spacing: 2px; cursor: pointer; transition: 0.3s; }
+            .btn-guest:hover { color: #f7b928; border-color: #f7b928; background: rgba(247, 185, 40, 0.05); box-shadow: 0 0 15px rgba(247, 185, 40, 0.1); }
+            
+            #signup-extra.hidden { display: none; }
+        </style>
+        <div class="auth-card">
+            <div style="position:relative;">
+                <img src="assets/logo.png" class="auth-logo">
+                <h1 class="auth-title">ICPH HUB</h1>
+                <p class="auth-subtitle">PANABO ZONE</p>
+            </div>
+            
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="tab-login" onclick="toggleAuthMode('login')">INITIALIZE</div>
+                <div class="auth-tab" id="tab-signup" onclick="toggleAuthMode('signup')">RECRUIT</div>
+            </div>
+            
+            <form onsubmit="event.preventDefault(); handleAuth(currentAuthMode)">
+                <div class="input-group">
+                    <i class="fas fa-user-ninja"></i>
+                    <input type="email" id="auth-email" placeholder="RIDER EMAIL" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-fingerprint"></i>
+                    <input type="password" id="auth-pass" placeholder="SECURITY KEY" required autocomplete="current-password">
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.65rem; color: #666; font-family: 'Orbitron';">                    <input type="checkbox" id="auth-remember" style="accent-color: var(--honda-red);">
+                    <label for="auth-remember">REMEMBER SESSION</label>
+                </div>
+
+                <button type="submit" class="btn-neon" id="auth-main-btn">ESTABLISH LINK</button>
+            </form>
+            
+            <div class="guest-protocol">
+                <p style="font-size: 0.55rem; color: #444; margin-bottom: 10px; letter-spacing: 1px;">RESTRICTED ACCESS? USE GUEST BYPASS</p>
+                <button class="btn-guest" onclick="guestLogin()">
+                    <i class="fas fa-user-secret" style="margin-right: 8px;"></i> GUEST EXPLORE (MARKET ONLY)
+                </button>
+            </div>
+        </div>
+    </div>
+    <main class="main-stage">
+        <div class="tab-bar">
+            <div class="tab-btn active" onclick="switchTab('community')">Community</div>
+            <div class="tab-btn" onclick="switchTab('stories')">Stories</div>
+            <div class="tab-btn" onclick="switchTab('active')">Active</div>
+        </div>
+        <div class="content-scroll">
+            <div id="tab-community" class="tab-view">
+                <div class="feed-container">
+                    <div class="feed-hero-banner"><img src="assets/cover.jpg" class="banner-img"><div class="banner-overlay"><div class="banner-content"><h1 class="banner-title">ICPH COMMUNITY</h1><p class="banner-subtitle">PANABO ZONE</p></div></div></div>
+                    <div class="stories-bar" id="stories-bar-mini" style="margin-bottom: 20px;">
+                        <div class="story-card create-story-btn" onclick="document.getElementById('story-file').click()">
+                            <div class="create-story-img"><img src="assets/logo.png" id="my-story-avatar"></div>
+                            <div class="create-story-info"><div class="create-story-plus"><i class="fas fa-plus"></i></div><span>Create</span></div>
+                            <input type="file" id="story-file" class="hidden" onchange="postStory(this)">
+                        </div>
+                        <div id="stories-list-mini" style="display:flex; gap:10px;"></div>
+                    </div>
+                    <div class="fb-post" style="padding: 15px;">
+                        <div id="post-input-header" style="display:flex; gap:12px; align-items:center; margin-bottom:12px;"><div id="post-avatar"></div><div style="flex:1; background: rgba(255,255,255,0.03); padding: 12px 20px; border-radius: 30px; color: #888; cursor: pointer;" onclick="focusPostArea()">What's on your mind, <span id="user-first-name" style="color:var(--honda-red); font-weight:700;">Rider</span>?</div></div>
+                        <div id="post-expanded" class="hidden" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 188px; position:relative;">
+                            <i class="fas fa-times" style="position:absolute; top:18px; right:0; color:#555; cursor:pointer;" onclick="closePostArea()"></i>
+                            <textarea id="post-content-main" class="input-dark" style="height:120px; resize:none; border:none; background:transparent;" placeholder="What's on your mind?"></textarea>
+                            <div id="post-extras-preview" style="margin-bottom:12px; font-size:0.75rem; color:var(--honda-red); font-weight:600;"></div>
+                            <div id="post-preview-area" style="margin-bottom:15px;"></div>
+                            <div style="border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; background:rgba(255,255,255,0.02);">
+                                <span style="font-size: 0.85rem; color: #ddd;">Add to post</span>
+                                <div style="display: flex; gap: 15px;">
+                                    <i class="fas fa-images" style="color:#45bd62; cursor:pointer;" onclick="document.getElementById('post-file-main').click()"></i>
+                                    <i class="fas fa-smile" style="color:#f7b928; cursor:pointer;" onclick="openPostExtra('feeling')"></i>
+                                    <i class="fas fa-map-marker-alt" style="color:#f5533d; cursor:pointer;" onclick="openPostExtra('location')"></i>
+                                </div>
+                                <input type="file" id="post-file-main" class="hidden" onchange="previewPostFile(this)">
+                            </div>
+                            <button class="btn-neon" style="width:100%;" id="btn-publish-main" onclick="createPostMain()">PUBLISH POST</button>
+                        </div>
+                    </div>
+                    <div id="community-feed"></div>
+                </div>
+            </div>
+            <div id="tab-stories" class="tab-view hidden"><div style="max-width: 900px; margin: 0 auto; display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px; padding:20px;" id="stories-grid-full"></div></div>
+            <div id="tab-active" class="tab-view hidden"><div style="max-width: 600px; margin: 0 auto; padding:20px;" id="online-list-full"></div></div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="post-extra-modal" class="post-extra-modal hidden"><div class="post-extra-card"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222; padding-bottom:10px;"><h4 id="extra-modal-title" style="font-family:'Orbitron'; font-size:0.8rem;">SELECT</h4><i class="fas fa-times" onclick="closePostExtra()"></i></div><div id="extra-modal-body"></div></div></div>
+    <div id="reactors-modal" class="hidden"><div class="reactors-card"><div class="reactors-header"><span>REACTIONS</span><i class="fas fa-times" onclick="closeReactors()"></i></div><div class="reactors-list" id="reactors-list"></div></div></div>
+    <div id="messenger-share-modal" class="post-extra-modal hidden"><div class="post-extra-card"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h4>SELECT RIDER</h4><i class="fas fa-times" onclick="document.getElementById('messenger-share-modal').classList.add('hidden')"></i></div><div id="share-friends-list" class="feeling-grid" style="grid-template-columns:1fr;"></div></div></div>
+    
+    <div id="story-viewer-modal" class="hidden" onmousemove="resetStoryControlsTimer()" ontouchstart="resetStoryControlsTimer()" onclick="resetStoryControlsTimer()">
+        <div class="story-v-main">
+            <div class="story-progress-container" id="story-progress-bars"></div>
+            <span class="story-close" onclick="closeStoryViewer()">&times;</span>
+            <div class="story-nav-btn" style="left:10px;" onclick="prevStory()"><i class="fas fa-chevron-left"></i></div>
+            <div class="story-nav-btn" style="right:10px;" onclick="nextStory()"><i class="fas fa-chevron-right"></i></div>
+            <div id="story-media-container" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#000;"></div>
+            
+            <div id="story-video-ctrls" class="story-video-controls hidden">
+                <i class="fas fa-pause story-ctrl-btn" id="story-play-btn" onclick="toggleStoryPlay()"></i>
+                <i class="fas fa-volume-up story-ctrl-btn" id="story-mute-btn" onclick="toggleStoryMute()"></i>
+                <input type="range" class="volume-slider" id="story-volume-slider" min="0" max="1" step="0.1" value="1" oninput="changeStoryVolume(this.value)">
+            </div>
+        </div>
+        <div class="story-v-sidebar">
+            <div class="story-v-header" id="story-header-info"></div>
+            <div class="story-v-comments" id="story-comments-list"></div>
+            <div class="story-v-input">
+                <input type="text" id="story-comment-input" placeholder="Reply..." onkeypress="if(event.key==='Enter') postStoryComment()"><i class="fas fa-paper-plane" onclick="postStoryComment()"></i>
+            </div>
+        </div>
+    </div>
+
+    <div id="media-viewer-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:30000; display:flex; align-items:center; justify-content:center;"><span class="story-close" onclick="closeMediaViewer()">&times;</span><div id="media-viewer-content" style="max-width:95%; max-height:95vh;"></div></div>
+
+    <div id="comments-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:50001; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(5px);">
+        <div class="reactors-card">
+            <div class="reactors-header">
+                <span>POST COMMENTS</span>
+                <i class="fas fa-times" style="cursor:pointer; color:#555;" onclick="closeCommentsModal()"></i>
+            </div>
+            <div id="comments-modal-list" class="reactors-list"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let allPosts = {}, allRiders = {}, currentStoryId = null, userStoriesGroup = [], currentStoryIndex = 0, storyControlsTimeout;
+        let allStoryGroups = []; // List of rider names in order
+        let currentGroupIndex = 0; // Index of the current rider in allStoryGroups
+        let groupedStories = {}; // To store stories by rider name for navigation
+        let selectedFeeling = null, selectedLocation = null;
+        const reactionMap = { 'like': '👍', 'love': '❤️', 'haha': '😆', 'wow': '😮', 'sad': '😢', 'angry': '😡' };
+
+        function resetStoryControlsTimer() {
+            const main = document.querySelector('.story-v-main');
+            if (!main) return;
+            main.classList.remove('hide-interface');
+            clearTimeout(storyControlsTimeout);
+            storyControlsTimeout = setTimeout(() => {
+                main.classList.add('hide-interface');
+            }, 3000); // Fades out after 3 seconds of inactivity
+        }
+
+        function initFeedRealtime() {
+            sb.channel('feed-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, async (p) => {
+                if (p.eventType === 'INSERT') { const div = document.createElement('div'); document.getElementById('community-feed').prepend(div); await renderPost(p.new, div); }
+                else if (p.eventType === 'UPDATE') { allPosts[p.new.id] = p.new; updatePostReactionsUI(p.new); }
+                else if (p.eventType === 'DELETE') { document.getElementById(`post-card-${p.old.id}`)?.remove(); }
+            }).subscribe();
+            sb.channel('stories-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'stories' }, () => loadStories()).subscribe();
+            sb.channel('comments-sync').on('postgres_changes', { event: '*', schema: 'public', table: 'post_comments' }, p => { if(p.new) loadPostComments(p.new.post_id); else if(p.old) loadPostComments(p.old.post_id); }).subscribe();
+        }
+
+        async function loadFeed() {
+            const { data: ps } = await sb.from('posts').select('*').order('created_at', { ascending: false });
+            if (!ps) return;
+            const names = [...new Set(ps.map(p => p.rider_name))];
+            const { data: rs } = await sb.from('riders').select('id, name, avatar_url, rank, is_super_admin').in('name', names);
+            if (rs) rs.forEach(r => allRiders[r.name] = r);
+            const feed = document.getElementById('community-feed'); feed.innerHTML = '';
+            ps.forEach(post => { const div = document.createElement('div'); feed.appendChild(div); renderPost(post, div); });
+        }
+
+        async function renderPost(d, container) {
+            allPosts[d.id] = d; const r = allRiders[d.rider_name]; const timeStr = new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let myReact = null; if (profile && d.likes) { const found = d.likes.find(l => l.startsWith(profile.name + '|') || l === profile.name); if (found) myReact = found.includes('|') ? found.split('|')[1] : 'like'; }
+            let content = d.content || '', metaHtml = '';
+            if (content.includes('|||')) {
+                const parts = content.split('|||'); content = parts[0];
+                if (parts[1] && parts[1] !== 'none') metaHtml += ` <span class="post-status-tag">is feeling ${parts[1]}</span>`;
+                if (parts[2] && parts[2] !== 'none') metaHtml += ` <span class="post-status-tag">at <b>${parts[2]}</b></span>`;
+            }
+            container.className = 'fb-post'; container.id = `post-card-${d.id}`;
+            const profileLink = r ? `onclick="window.location.href='profile.html?id=${r.id}'"` : '';
+            const isAdmin = profile && (profile.name === d.rider_name || profile.is_admin || profile.is_super_admin);
+
+            container.innerHTML = `
+                <div class="fb-post-header">
+                    <div ${profileLink} style="cursor:pointer;">${getAvatarHTML(d.rider_name, r?.avatar_url, "style='width:40px; height:40px;'")}</div>
+                    <div class="fb-post-user"><span class="fb-post-name" ${profileLink} style="cursor:pointer;">${d.rider_name} ${metaHtml} ${getBadgeHTML(r?.rank, r?.is_super_admin, d.rider_name)}</span><span class="fb-post-time">${timeStr}</span></div>
+                    ${isAdmin ? `<i class="fas fa-trash-alt" style="color:#333; cursor:pointer;" onclick="deletePost('${d.id}')"></i>` : ''}
+                </div>
+                <div class="fb-post-content">${content}</div>
+                ${d.image_url ? `<div class="fb-post-media-container" onclick="openMediaViewer('${d.image_url}')"><img src="${d.image_url}" class="fb-post-media"></div>` : ''}
+                <div class="fb-post-footer">
+                    <div class="fb-stats"><span id="react-count-${d.id}" onclick="showReactors('${d.id}')" style="cursor:pointer;">${d.likes?.length || 0} Reactions</span><span id="comment-count-${d.id}" onclick="showCommentsModal('${d.id}')" style="cursor:pointer;">0 Comments</span></div>
+                    <div class="fb-actions">
+                        <div class="fb-action-btn ${myReact ? 'reaction-active react-' + myReact : ''}" id="react-btn-${d.id}" style="position:relative;" onclick="handleQuickLike('${d.id}')">
+                            <span id="react-label-${d.id}">${myReact ? reactionMap[myReact] + ' ' + myReact.toUpperCase() : '<i class="fas fa-heart"></i> LIKE'}</span>
+                            <div class="reactions-popup">${Object.keys(reactionMap).map(t => `<span onclick="event.stopPropagation(); toggleReaction('${d.id}','${t}')">${reactionMap[t]}</span>`).join('')}</div>
+                        </div>
+                        <div class="fb-action-btn" onclick="document.getElementById('post-cmt-input-${d.id}').focus()"><i class="fas fa-comment"></i> COMMENT</div>
+                        <div class="fb-action-btn" onclick="toggleShareMenu('${d.id}')" style="position:relative;"><i class="fas fa-share"></i> SHARE<div id="share-menu-${d.id}" class="reactions-popup hidden" style="flex-direction:column; width:180px; border-radius:10px; bottom:45px; right:0;">
+                            <div class="share-opt" onclick="repostPost('${d.id}')"><i class="fas fa-retweet"></i> Repost</div><div class="share-opt" onclick="openMessengerShare('${d.id}')"><i class="fab fa-facebook-messenger"></i> Send</div><div class="share-opt" onclick="copyPostLink('${d.id}')"><i class="fas fa-link"></i> Link</div>
+                        </div></div>
+                    </div>
+                    <div id="post-comments-list-${d.id}"></div><div class="post-comment-input-area"><input type="text" id="post-cmt-input-${d.id}" placeholder="Comment..." onkeypress="if(event.key==='Enter') postComment('${d.id}')"></div>
+                </div>`;
+            loadPostComments(d.id);
+        }
+
+        async function toggleReaction(id, type) {
+            if (!profile) return; const p = allPosts[id];
+            let n = (p.likes || []).filter(l => !l.startsWith(profile.name + '|'));
+            if (type) n.push(`${profile.name}|${type}`);
+            p.likes = n; updatePostReactionsUI(p);
+            await sb.from('posts').update({ likes: n }).eq('id', id);
+            
+            // Notification trigger for reactions
+            if (type && p.rider_name !== profile.name) {
+                await createNotification(p.rider_name, profile.name, `reacted to your post.`, 'reaction', id);
+            }
+        }
+
+        async function handleQuickLike(id) {
+            const p = allPosts[id]; if (!p || !profile) return;
+            const myFound = p.likes?.find(l => l.startsWith(profile.name + '|'));
+            if (myFound) await toggleReaction(id, null); else await toggleReaction(id, 'like');
+        }
+
+        function updatePostReactionsUI(p) {
+            const countEl = document.getElementById(`react-count-${p.id}`), btn = document.getElementById(`react-btn-${p.id}`), label = document.getElementById(`react-label-${p.id}`);
+            if (countEl) countEl.innerText = `${p.likes?.length || 0} Reactions`;
+            if (btn && label && profile) {
+                const found = p.likes?.find(l => l.startsWith(profile.name + '|'));
+                const type = found ? found.split('|')[1] : null;
+                btn.className = 'fb-action-btn' + (type ? ' reaction-active react-' + type : '');
+                label.innerHTML = type ? `${reactionMap[type]} ${type.toUpperCase()}` : `<i class="fas fa-heart"></i> LIKE`;
+            }
+        }
+
+        function toggleShareMenu(id) { document.getElementById(`share-menu-${id}`).classList.toggle('hidden'); }
+        async function repostPost(id) { const p = allPosts[id]; if(confirm("Repost?")) await sb.from('posts').insert([{ rider_name: profile.name, content: `[REPOST FROM ${p.rider_name}] ${p.content.split('|||')[0]}`, image_url: p.image_url }]); }
+        async function openMessengerShare(id) { 
+            const modal = document.getElementById('messenger-share-modal'), list = document.getElementById('share-friends-list');
+            modal.classList.remove('hidden'); list.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            const { data: friends } = await sb.from('friendships').select('*').or(`sender_name.eq.${profile.name},receiver_name.eq.${profile.name}`).eq('status', 'accepted');
+            list.innerHTML = '';
+            friends?.forEach(f => {
+                const name = f.sender_name === profile.name ? f.receiver_name : f.sender_name;
+                const d = document.createElement('div'); d.className = 'feeling-item'; d.innerHTML = `<b>${name}</b>`;
+                d.onclick = async () => { await sb.from('chats').insert([{ sender_name: profile.name, receiver_name: name, message: `Shared post: ${window.location.href}?post=${id}`, is_private: true }]); alert("SENT!"); };
+                list.appendChild(d);
+            });
+        }
+        function copyPostLink(id) { navigator.clipboard.writeText(window.location.href + '?post=' + id); alert("Copied!"); }
+
+        async function loadPostComments(id) {
+            const { data } = await sb.from('post_comments').select('*').eq('post_id', id).order('created_at', { ascending: true });
+            const list = document.getElementById(`post-comments-list-${id}`), count = document.getElementById(`comment-count-${id}`);
+            if (count) count.innerText = `${data?.length || 0} Comments`;
+            if (!list) return;
+            if (!data || data.length === 0) { list.innerHTML = ''; return; }
+
+            const names = [...new Set(data.map(c => c.rider_name))];
+            const missing = names.filter(n => !allRiders[n]);
+            if (missing.length > 0) {
+                const { data: rs } = await sb.from('riders').select('id, name, avatar_url, rank, is_super_admin').in('name', missing);
+                if (rs) rs.forEach(r => allRiders[r.name] = r);
+            }
+
+            list.innerHTML = data.map(c => {
+                const r = allRiders[c.rider_name];
+                return `
+                    <div class="comment-row" style="display:flex; gap:10px; margin-bottom:12px; align-items:flex-start;">
+                        <div onclick="stalkRider('${c.rider_name}')" class="comment-avatar">${getAvatarHTML(c.rider_name, r?.avatar_url, "style='width:32px; height:32px; border-radius:50%; overflow:hidden;'")}</div>
+                        <div class="comment-bubble" style="background:rgba(255,255,255,0.03); padding:10px 15px; border-radius:18px; flex:1; border:1px solid rgba(255,255,255,0.02);">
+                            <div class="comment-name" onclick="stalkRider('${c.rider_name}')" style="font-size:0.8rem; font-weight:800; color:var(--honda-red); margin-bottom:2px;">${c.rider_name}</div>
+                            <div style="font-size:0.85rem; color:#eee; line-height:1.4;">${c.text}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+        async function postComment(id) {
+            const el = document.getElementById(`post-cmt-input-${id}`), val = el.value.trim();
+            if(val) {
+                await sb.from('post_comments').insert([{ post_id: id, rider_name: profile.name, text: val }]);
+                el.value = '';
+
+                // Logic Core: Trigger standardized In-App Notification
+                const p = allPosts[id];
+                if (p && p.rider_name !== profile.name) {
+                    await sb.from('notifications').insert([{
+                        receiver_name: p.rider_name,
+                        sender_name: profile.name,
+                        message: `commented on your post: "${val.substring(0, 20)}${val.length > 20 ? '...' : ''}"`,
+                        type: 'post_comment',
+                        target_id: id
+                    }]);
+                }
+            }
+        }        async function deletePost(id) { if(confirm("Erase post?")) await sb.from('posts').delete().eq('id', id); }
+        async function stalkRider(name) { const { data } = await sb.from('riders').select('id').eq('name', name).single(); if(data) window.location.href=`profile.html?id=${data.id}`; }
+
+        async function loadStories() {
+            const { data } = await sb.from('stories').select('*').order('created_at', { ascending: false });
+            const list = document.getElementById('stories-list-mini'); if(!list) return; list.innerHTML = '';
+            
+            // Logic Core: Initialize Seen Registry
+            const seenStories = JSON.parse(localStorage.getItem('icph_seen_stories') || '[]');
+            
+            groupedStories = {}; 
+            data?.forEach(s => { 
+                if(!groupedStories[s.rider_name]) groupedStories[s.rider_name] = []; 
+                groupedStories[s.rider_name].push(s); 
+            });
+            
+            allStoryGroups = Object.keys(groupedStories);
+            allStoryGroups.forEach(n => {
+                const stories = groupedStories[n];
+                const unseenStories = stories.filter(s => !seenStories.includes(s.id));
+                const latest = stories[0];
+                const isV = latest.image_url.match(/\.(mp4|webm|mov)$/i);
+                
+                // Only show badge if there are unseen stories
+                const displayCount = unseenStories.length > 9 ? '9+' : unseenStories.length;
+                const hasUnseen = unseenStories.length > 0;
+
+                const div = document.createElement('div'); 
+                div.className = `story-card ${!hasUnseen ? 'seen' : ''}`; 
+                div.style.minWidth='80px'; 
+                div.onclick = () => openUserStories(n, stories);
+                
+                div.innerHTML = `
+                    ${isV ? `<video src="${latest.image_url}"></video>` : `<img src="${latest.image_url}">`}
+                    <div class="story-card-overlay">
+                        <span>${n}</span>
+                        ${hasUnseen ? `<div class="story-count-badge" id="badge-${n}">${displayCount}</div>` : ''}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function openUserStories(n, s) { 
+            userStoriesGroup = s; 
+            currentStoryIndex = 0; 
+            currentGroupIndex = allStoryGroups.indexOf(n);
+            displayCurrentStory(); 
+        }
+
+        async function displayCurrentStory() {
+            resetStoryControlsTimer();
+            const s = userStoriesGroup[currentStoryIndex]; if(!s) return closeStoryViewer();
+            
+            // Binary Wraith: Global Seen Registry Update
+            let seenStories = JSON.parse(localStorage.getItem('icph_seen_stories') || '[]');
+            if (!seenStories.includes(s.id)) {
+                seenStories.push(s.id);
+                localStorage.setItem('icph_seen_stories', JSON.stringify(seenStories));
+                
+                // Logic Core: Update all badge instances (Mini-Bar & Grid)
+                const updateBadge = (riderName) => {
+                    const currentUnseen = userStoriesGroup.filter(st => !seenStories.includes(st.id)).length;
+                    // Target all potential badge containers for this rider
+                    const badges = document.querySelectorAll(`[id^="badge-${riderName}"], .story-count-badge`);
+                    badges.forEach(badge => {
+                        // Check if this badge belongs to the current rider being viewed
+                        const parentCard = badge.closest('.story-card');
+                        if (parentCard && parentCard.innerText.includes(riderName)) {
+                            if (currentUnseen > 0) {
+                                badge.innerText = currentUnseen;
+                            } else {
+                                badge.remove();
+                                parentCard.classList.add('seen');
+                            }
+                        }
+                    });
+                };
+                updateBadge(s.rider_name);
+            }
+
+            document.getElementById('story-viewer-modal').classList.remove('hidden');
+            const bars = document.getElementById('story-progress-bars'); bars.innerHTML = '';
+            userStoriesGroup.forEach((_, i) => { const b = document.createElement('div'); b.className = 'story-progress-bar'; b.innerHTML = `<div class="story-progress-inner ${i < currentStoryIndex ? 'viewed' : ''}"></div>`; bars.appendChild(b); });
+            const isV = s.image_url.match(/\.(mp4|webm|mov)$/i);
+            const container = document.getElementById('story-media-container');
+            const ctrls = document.getElementById('story-video-ctrls');
+            const playBtn = document.getElementById('story-play-btn');
+            if (isV) {
+                container.innerHTML = `<video src="${s.image_url}" id="story-video" autoplay playsinline style="max-width:100%; max-height:100%;"></video>`;
+                ctrls.classList.remove('hidden'); if(playBtn) playBtn.className = 'fas fa-pause story-ctrl-btn';
+                document.getElementById('story-video').onended = () => nextStory();
+            } else {
+                container.innerHTML = `<img src="${s.image_url}" style="max-width:100%; max-height:100%; object-fit:contain;">`;
+                ctrls.classList.add('hidden'); setTimeout(() => { if(currentStoryId === s.id) nextStory(); }, 5000);
+            }
+            
+            const canDelete = profile && (profile.name === s.rider_name || profile.is_admin || profile.is_super_admin);
+            document.getElementById('story-header-info').innerHTML = `
+                <b onclick="stalkRider('${s.rider_name}')" style="cursor:pointer; color:white;">${s.rider_name}</b>
+                ${canDelete ? `<i class="fas fa-trash-alt" style="color:#e30613; cursor:pointer; margin-left:15px;" onclick="deleteCurrentStory()"></i>` : ''}
+            `;
+            currentStoryId = s.id;
+            loadStoryComments(s.id);
+        }
+
+        async function deleteCurrentStory() {
+            if (!currentStoryId) return;
+            if (!confirm("ERASE THIS STORY PERMANENTLY?")) return;
+            
+            const { error } = await sb.from('stories').delete().eq('id', currentStoryId);
+            if (error) {
+                alert("Delete failed: " + error.message);
+            } else {
+                alert("STORY DELETED!");
+                // Refresh local data and move to next story or close
+                await loadStories();
+                if (userStoriesGroup.length > 1) {
+                    // Remove from local group array
+                    userStoriesGroup.splice(currentStoryIndex, 1);
+                    if (currentStoryIndex >= userStoriesGroup.length) currentStoryIndex = userStoriesGroup.length - 1;
+                    displayCurrentStory();
+                } else {
+                    closeStoryViewer();
+                }
+            }
+        }
+        function toggleStoryPlay() {
+            const v = document.getElementById('story-video'), btn = document.getElementById('story-play-btn');
+            if (!v || !btn) return; if (v.paused) { v.play(); btn.className = 'fas fa-pause story-ctrl-btn'; } else { v.pause(); btn.className = 'fas fa-play story-ctrl-btn'; }
+        }
+        function toggleStoryMute() {
+            const v = document.getElementById('story-video'), btn = document.getElementById('story-mute-btn');
+            if (!v || !btn) return; v.muted = !v.muted; btn.className = v.muted ? 'fas fa-volume-mute story-ctrl-btn' : 'fas fa-volume-up story-ctrl-btn';
+        }
+        function changeStoryVolume(val) {
+            const v = document.getElementById('story-video'), btn = document.getElementById('story-mute-btn');
+            if (!v) return; v.volume = val; v.muted = (val == 0); if (btn) btn.className = v.muted ? 'fas fa-volume-mute story-ctrl-btn' : 'fas fa-volume-up story-ctrl-btn';
+        }
+        function nextStory() {
+            if (currentStoryIndex < userStoriesGroup.length - 1) {
+                currentStoryIndex++;
+                displayCurrentStory();
+            } else if (currentGroupIndex < allStoryGroups.length - 1) {
+                currentGroupIndex++;
+                currentStoryIndex = 0;
+                userStoriesGroup = groupedStories[allStoryGroups[currentGroupIndex]];
+                displayCurrentStory();
+            } else {
+                closeStoryViewer();
+            }
+        }
+        function prevStory() {
+            if (currentStoryIndex > 0) {
+                currentStoryIndex--;
+                displayCurrentStory();
+            } else if (currentGroupIndex > 0) {
+                currentGroupIndex--;
+                userStoriesGroup = groupedStories[allStoryGroups[currentGroupIndex]];
+                currentStoryIndex = userStoriesGroup.length - 1;
+                displayCurrentStory();
+            }
+        }
+        function closeStoryViewer() { 
+            document.getElementById('story-viewer-modal').classList.add('hidden'); 
+            currentStoryId = null; 
+            clearTimeout(storyControlsTimeout);
+        }
+
+        function switchTab(t) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes(t)));
+            document.querySelectorAll('.tab-view').forEach(v => v.classList.toggle('hidden', v.id !== `tab-${t}`));
+            if(t==='active') loadOnlineListFull(); 
+            if(t==='stories') {
+                // Bug Hunter X: Force clear before reload to prevent doubling
+                const grid = document.getElementById('stories-grid-full');
+                if (grid) grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:20px;"><i class="fas fa-spinner fa-spin"></i></div>';
+                loadStoriesGrid();
+            }
+        }
+        async function loadOnlineListFull() {
+            if (!profile) return;
+            const { data } = await sb.from('riders').select('*').order('last_seen', { ascending: false });
+            const list = document.getElementById('online-list-full');
+            if (!list) return;
+            
+            list.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:50px; color:#444;">No riders found.</div>';
+                return;
+            }
+
+            data.forEach(r => {
+                if (r.name === profile.name) return; // Hide self
+
+                const lastSeen = new Date(r.last_seen);
+                const diffMins = Math.floor((new Date() - lastSeen) / 60000);
+                const isOnline = diffMins < 5;
+                let timeStr = isOnline ? 'Online Now' : (diffMins < 60 ? `Active ${diffMins}m ago` : (diffMins < 1440 ? `Active ${Math.floor(diffMins / 60)}h ago` : `Active ${Math.floor(diffMins / 1440)}d ago`));
+
+                const div = document.createElement('div');
+                div.className = 'glass-card';
+                div.style = "display:flex; align-items:center; gap:15px; padding:15px; margin-bottom:12px; cursor:pointer; border:1px solid rgba(255,255,255,0.02);";
+                div.onclick = () => window.location.href=`profile.html?id=${r.id}`;
+
+                div.innerHTML = `
+                    <div style="position:relative;">
+                        ${getAvatarHTML(r.name, r.avatar_url, "style='width:45px; height:45px;'")}
+                        <div class="status-dot ${isOnline ? 'online' : ''}" style="position:absolute; bottom:0; right:0; border:2px solid #000;"></div>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
+                            <b style="color:white; font-size:0.9rem;">${r.name}</b>
+                            ${getBadgeHTML(r.rank, r.is_super_admin, r.name)}
+                        </div>
+                        <div style="font-size:0.65rem; color:#555; font-family:'Orbitron';">${timeStr}</div>
+                    </div>
+                    <button class="btn-neon" style="width:auto; padding:8px 15px; font-size:0.6rem;" onclick="event.stopPropagation(); startPrivateChat('${r.name}')">
+                        <i class="fab fa-facebook-messenger"></i> MESSAGE
+                    </button>
+                `;
+                list.appendChild(div);
+            });
+        }
+        async function loadStoriesGrid() {
+            const { data } = await sb.from('stories').select('*').order('created_at', { ascending: false });
+            const grid = document.getElementById('stories-grid-full');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px; color:#444;">No stories found.</div>';
+                return;
+            }
+
+            // Logic Core: Consolidate stories by Rider Name
+            const gridGroups = {};
+            data.forEach(s => {
+                if (!gridGroups[s.rider_name]) gridGroups[s.rider_name] = [];
+                gridGroups[s.rider_name].push(s);
+            });
+
+            const seenStories = JSON.parse(localStorage.getItem('icph_seen_stories') || '[]');
+            
+            grid.innerHTML = Object.keys(gridGroups).map(name => {
+                const stories = gridGroups[name];
+                const latest = stories[0];
+                const unseenCount = stories.filter(s => !seenStories.includes(s.id)).length;
+                const isV = latest.image_url.match(/\.(mp4|webm|mov)$/i);
+                
+                return `
+                    <div class="story-card ${unseenCount === 0 ? 'seen' : ''}" style="height:250px;" onclick="openUserStories('${name}', gridGroups['${name}'])">
+                        ${isV ? `<video src="${latest.image_url}"></video>` : `<img src="${latest.image_url}">`}
+                        <div class="story-card-overlay">
+                            <span>${name}</span>
+                            ${unseenCount > 0 ? `<div class="story-count-badge">${unseenCount}</div>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+
+            // Logic Core: Store grouped data globally for the onclick handler
+            window.gridGroups = gridGroups;
+        }
+
+        async function loadStoryComments(sid) {
+            const { data } = await sb.from('story_comments').select('*').eq('story_id', sid).order('created_at', { ascending: true });
+            const list = document.getElementById('story-comments-list');
+            if (list) {
+                list.innerHTML = data?.map(c => {
+                    const canDelete = profile && (profile.name === c.rider_name || profile.name === userStoriesGroup[currentStoryIndex].rider_name || profile.is_admin || profile.is_super_admin);
+                    return `
+                        <div style="padding:8px 0; border-bottom:1px solid #111; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <b style="color:var(--honda-red); font-size:0.7rem;">${c.rider_name}</b>: 
+                                <span style="font-size:0.75rem; color:#ccc;">${c.text}</span>
+                            </div>
+                            ${canDelete ? `<i class="fas fa-trash-alt" style="color:#444; cursor:pointer; font-size:0.6rem; margin-left:10px;" onclick="deleteStoryComment('${c.id}')"></i>` : ''}
+                        </div>`;
+                }).join('') || '';
+            }
+        }
+
+        async function deleteStoryComment(cid) {
+            if (!confirm("PURGE THIS REPLY?")) return;
+            const { error } = await sb.from('story_comments').delete().eq('id', cid);
+            if (!error) await loadStoryComments(currentStoryId);
+        }
+
+        async function postStoryComment() {
+            const input = document.getElementById('story-comment-input');
+            const val = input.value.trim();
+            if (!val || !currentStoryId) return;
+            
+            // Logic Core: Feedback Protocol
+            const originalPlaceholder = input.placeholder;
+            input.disabled = true;
+            input.placeholder = "SENDING...";
+
+            try {
+                const { error } = await sb.from('story_comments').insert([{ 
+                    story_id: currentStoryId, 
+                    rider_name: profile.name, 
+                    text: val 
+                }]);
+                
+                if (error) throw error;
+
+                // Logic Core: Trigger In-App Notification
+                const storyOwner = userStoriesGroup[currentStoryIndex].rider_name;
+                if (storyOwner !== profile.name) {
+                    await sb.from('notifications').insert([{
+                        receiver_name: storyOwner,
+                        sender_name: profile.name,
+                        message: `replied to your story: "${val.substring(0, 20)}${val.length > 20 ? '...' : ''}"`,
+                        type: 'story_comment',
+                        target_id: currentStoryId
+                    }]);
+                }
+
+                input.value = '';
+                input.placeholder = "REPLY SENT!";
+                setTimeout(() => {
+                    input.placeholder = originalPlaceholder;
+                    input.disabled = false;
+                    input.focus();
+                }, 1500);
+
+                await loadStoryComments(currentStoryId);
+            } catch (err) {
+                console.error("Story Comment Error:", err);
+                input.placeholder = "FAILED TO SEND";
+                input.disabled = false;
+                setTimeout(() => { input.placeholder = originalPlaceholder; }, 3000);
+            }
+        }
+
+        function focusPostArea() { document.getElementById('post-input-header').classList.add('hidden'); document.getElementById('post-expanded').classList.remove('hidden'); document.getElementById('post-content-main').focus(); }
+        function closePostArea() { document.getElementById('post-input-header').classList.remove('hidden'); document.getElementById('post-expanded').classList.add('hidden'); }
+        function openPostExtra(type) {
+            const body = document.getElementById('extra-modal-body'); document.getElementById('post-extra-modal').classList.remove('hidden');
+            if (type === 'feeling') { body.innerHTML = '<div class="feeling-grid">' + [{n:'Happy',e:'😊'},{n:'Riding',e:'🏍️'},{n:'Cool',e:'😎'},{n:'Loved',e:'❤️'}].map(f => `<div class="feeling-item" onclick="setPostExtra('feeling', '${f.e} ${f.n}')">${f.e} ${f.n}</div>`).join('') + '</div>'; }
+            else if (type === 'location') { body.innerHTML = '<input type="text" id="loc-in" class="input-dark" placeholder="Where?"><button class="btn-neon" onclick="setPostExtra(\'location\', document.getElementById(\'loc-in\').value)">SET</button>'; }
+        }
+        function setPostExtra(t, v) { if(t==='feeling') selectedFeeling=v; if(t==='location') selectedLocation=v; document.getElementById('post-extras-preview').innerText = (selectedFeeling ? ' — feeling '+selectedFeeling : '') + (selectedLocation ? ' at '+selectedLocation : ''); closePostExtra(); }
+        function closePostExtra() { document.getElementById('post-extra-modal').classList.add('hidden'); }
+        async function createPostMain() {
+            const t = document.getElementById('post-content-main').value.trim(), f = document.getElementById('post-file-main').files[0];
+            if(!t && !f) return; let url = null;
+            if(f) { const path = `posts/${Date.now()}_${f.name}`; await sb.storage.from('rides').upload(path, f); url = (sb.storage.from('rides').getPublicUrl(path)).data.publicUrl; }
+            await sb.from('posts').insert([{ rider_name: profile.name, content: t + '|||' + (selectedFeeling || 'none') + '|||' + (selectedLocation || 'none'), image_url: url }]);
+            closePostArea(); loadFeed();
+        }
+        function openMediaViewer(u) { const modal = document.getElementById('media-viewer-modal'); document.getElementById('media-viewer-content').innerHTML = u.match(/\.(mp4|webm|mov)$/i) ? `<video src="${u}" autoplay loop controls style="max-width:100%; max-height:90vh;"></video>` : `<img src="${u}" style="max-width:100%; max-height:90vh;">`; modal.classList.remove('hidden'); }
+        function closeMediaViewer() { document.getElementById('media-viewer-modal').classList.add('hidden'); }
+        function previewPostFile(input) { const file = input.files[0]; if (file) { const reader = new FileReader(); reader.onload = (e) => { document.getElementById('post-preview-area').innerHTML = `<img src="${e.target.result}" style="width:100%; border-radius:10px; max-height:300px; object-fit:cover;">`; }; reader.readAsDataURL(file); } }
+
+        window.addEventListener('load', () => { const check = setInterval(() => { if (profile) { clearInterval(check); document.getElementById('user-first-name').innerText = profile.name; document.getElementById('post-avatar').outerHTML = getAvatarHTML(profile.name, profile.avatar_url, "id='post-avatar' style='width:40px; height:40px;'"); if (profile.avatar_url) document.getElementById('my-story-avatar').src = profile.avatar_url; loadFeed(); loadStories(); initFeedRealtime(); switchTab('community'); } }, 500); });
+
+        async function showCommentsModal(postId) {
+            const modal = document.getElementById('comments-modal');
+            const list = document.getElementById('comments-modal-list');
+            modal.classList.remove('hidden');
+            list.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i></div>';
+            
+            const { data: cmts, error } = await sb.from('post_comments').select('*').eq('post_id', postId).order('created_at', { ascending: false });
+            if (error) { alert("Error loading comments"); return; }
+            
+            list.innerHTML = '';
+            if (cmts.length === 0) { list.innerHTML = '<div style="text-align:center; padding:20px; color:#444;">No comments yet.</div>'; return; }
+            
+            for (const c of cmts) {
+                const { data: r } = await sb.from('riders').select('id, avatar_url, rank, is_super_admin').eq('name', c.rider_name).single();
+                const div = document.createElement('div');
+                div.className = 'reactor-item';
+                div.onclick = () => { window.location.href = `profile.html?id=${r?.id}`; };
+                div.innerHTML = `
+                    ${getAvatarHTML(c.rider_name, r?.avatar_url, "style='width:35px; height:35px;'")}
+                    <div class="reactor-info">
+                        <span class="reactor-name">${c.rider_name}</span>
+                        <span class="reactor-rank">${c.text}</span>
+                        <div style="font-size:0.6rem; color:#444;">${new Date(c.created_at).toLocaleString()}</div>
+                    </div>
+                    <div class="reactor-action"><i class="fas fa-chevron-right"></i></div>
+                `;
+                list.appendChild(div);
+            }
+        }
+        function closeCommentsModal() { document.getElementById('comments-modal').classList.add('hidden'); }
+    </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+-- SQL SETUP FOR GROUP POLLS & ANNOUNCEMENTS
+-- Execute this in your Supabase SQL Editor
+
+-- 1. Create Polls Table
+CREATE TABLE group_polls (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    group_id UUID REFERENCES chat_groups(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Create Poll Options Table
+CREATE TABLE poll_options (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    poll_id UUID REFERENCES group_polls(id) ON DELETE CASCADE,
+    option_text TEXT NOT NULL
+);
+
+-- 3. Create Poll Votes Table
+CREATE TABLE poll_votes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    poll_id UUID REFERENCES group_polls(id) ON DELETE CASCADE,
+    option_id UUID REFERENCES poll_options(id) ON DELETE CASCADE,
+    rider_name TEXT NOT NULL,
+    voted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(poll_id, rider_name) -- One vote per rider per poll
+);
+
+-- 4. Add Pinned Message support to Chat Groups
+ALTER TABLE chat_groups ADD COLUMN pinned_message TEXT;
+
+-- 5. Enable Real-time
+ALTER PUBLICATION supabase_realtime ADD TABLE group_polls;
+ALTER PUBLICATION supabase_realtime ADD TABLE poll_options;
+ALTER PUBLICATION supabase_realtime ADD TABLE poll_votes;

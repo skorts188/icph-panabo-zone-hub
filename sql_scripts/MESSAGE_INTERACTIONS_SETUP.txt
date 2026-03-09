@@ -1,0 +1,24 @@
+-- SQL SETUP FOR MESSAGE INTERACTIONS (REPLIES, REACTIONS, DELETION)
+-- Run this in your Supabase SQL Editor
+
+-- 1. Add Reply and Reaction columns to chats
+ALTER TABLE public.chats 
+ADD COLUMN IF NOT EXISTS reply_to_id UUID REFERENCES public.chats(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS reactions JSONB DEFAULT '[]'::jsonb;
+
+-- 2. Update RLS for Deletion
+-- Allow users to delete their own messages
+DROP POLICY IF EXISTS "Users can delete their own messages" ON public.chats;
+CREATE POLICY "Users can delete their own messages" 
+ON public.chats FOR DELETE 
+TO authenticated 
+USING (sender_name = (SELECT name FROM riders WHERE id = auth.uid()));
+
+-- 3. Update RLS for Updates (Reactions)
+-- Allow users to update messages (for adding reactions)
+DROP POLICY IF EXISTS "Users can update messages for reactions" ON public.chats;
+CREATE POLICY "Users can update messages for reactions" 
+ON public.chats FOR UPDATE 
+TO authenticated 
+USING (true)
+WITH CHECK (true);

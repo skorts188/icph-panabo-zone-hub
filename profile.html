@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Edit Profile</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .profile-header-area {
+            position: relative;
+            background: linear-gradient(to bottom, var(--honda-red), transparent);
+            height: 150px;
+            border-radius: 15px 15px 0 0;
+            margin-bottom: 60px;
+        }
+
+        .profile-avatar-wrapper {
+            position: absolute;
+            bottom: -50px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 5px solid #000;
+            background: #111;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+        }
+
+        .profile-avatar-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .upload-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .profile-avatar-wrapper:hover .upload-overlay {
+            opacity: 1;
+        }
+
+        .profile-name-area {
+            margin-left: 160px;
+            padding: 10px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            min-height: 80px;
+        }
+
+        .profile-name-area h2 {
+            font-family: 'Orbitron';
+            font-size: 1.4rem;
+            color: #fff;
+            margin-bottom: 5px;
+            word-break: break-word;
+        }
+
+        .profile-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .form-section {
+            padding: 25px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .view-only-text {
+            color: #ddd;
+            font-size: 1rem;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+            word-break: break-word;
+        }
+
+        @media (max-width: 600px) {
+            .profile-header-area {
+                height: 120px;
+                margin-bottom: 70px;
+            }
+
+            .profile-avatar-wrapper {
+                width: 100px;
+                height: 100px;
+                bottom: -50px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .profile-name-area {
+                margin-left: 0;
+                text-align: center;
+                padding: 10px;
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .profile-actions {
+                width: 100%;
+                justify-content: center;
+                gap: 8px;
+            }
+
+            .profile-actions .btn-neon {
+                width: 100%;
+                max-width: 250px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .form-section {
+                padding: 15px;
+            }
+
+            .glass-card {
+                margin: 0 !important;
+                border-radius: 0 !important;
+                border: none !important;
+            }
+
+            #edit-buttons {
+                flex-direction: column-reverse;
+                gap: 10px;
+            }
+
+            #edit-buttons button {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="dark-mode">
+    <main class="main-stage">
+        <div class="content-scroll">
+            <div class="glass-card" style="max-width: 800px; margin: 0 auto; overflow: visible;">
+                <!-- Header Area -->
+                <div class="profile-header-area">
+                    <div class="profile-avatar-wrapper">
+                        <img src="assets/logo.png" id="p-preview" alt="Profile Preview">
+                        <div class="upload-overlay" id="avatar-upload-trigger"
+                            role="button" aria-label="Upload Avatar"
+                            onclick="document.getElementById('p-file').click()">
+                            <i class="fas fa-camera" style="font-size:1.5rem; color:white;" aria-hidden="true"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-name-area">
+                    <div>
+                        <h2 id="display-name-label">RIDER NAME</h2>
+                        <div id="display-badge-cont"></div>
+                    </div>
+                    <!-- Action Buttons (Hidden by default, shown in View Mode) -->
+                    <div id="profile-actions" class="profile-actions hidden">
+                        <!-- Buttons injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Form Section -->
+                <div class="form-section">
+                    <div style="margin-bottom: 25px;">
+                        <span class="menu-label" style="margin-left:0; color:var(--honda-red); display:block; margin-bottom:15px; font-weight:bold; letter-spacing:1px;">PERSONAL
+                            INFORMATION</span>
+                        <div class="form-grid">
+                            <div>
+                                <label for="p-name" style="font-size:0.7rem; color:#888; margin-bottom:5px; display:block;">DISPLAY
+                                    NAME</label>
+                                <input type="text" id="p-name" class="input-dark" placeholder="Your Name">
+                                <div id="v-name" class="view-only-text hidden"></div>
+                            </div>
+                            <div>
+                                <label for="p-phone" style="font-size:0.7rem; color:#888; margin-bottom:5px; display:block;">PHONE
+                                    NUMBER</label>
+                                <input type="text" id="p-phone" class="input-dark" placeholder="09XX XXX XXXX">
+                                <div id="v-phone" class="view-only-text hidden"></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:15px;">
+                            <label for="p-bio" style="font-size:0.7rem; color:#888; margin-bottom:5px; display:block;">BIO /
+                                QUOTE</label>
+                            <textarea id="p-bio" class="input-dark" style="height:80px; resize:none;"
+                                placeholder="Tell us about yourself..."></textarea>
+                            <div id="v-bio" class="view-only-text hidden"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 25px;">
+                        <span class="menu-label" style="margin-left:0; color:var(--honda-red); display:block; margin-bottom:15px; font-weight:bold; letter-spacing:1px;">RIDE DETAILS</span>
+                        <div class="form-grid">
+                            <div>
+                                <label for="p-model"
+                                    style="font-size:0.7rem; color:#888; margin-bottom:5px; display:block;">MOTORCYCLE
+                                    MODEL</label>
+                                <input type="text" id="p-model" class="input-dark" placeholder="e.g. Honda CBR 150R">
+                                <div id="v-model" class="view-only-text hidden"></div>
+                            </div>
+                            <div id="avatar-input-group">
+                                <label for="p-file" style="font-size:0.7rem; color:#888; margin-bottom:5px; display:block;">CHANGE
+                                    AVATAR</label>
+                                <input type="file" id="p-file" class="hidden" onchange="previewAvatar(this)">
+                                <button type="button" class="btn-neon"
+                                    style="width:100%; background:rgba(255,255,255,0.05); color:#888; border:1px solid #333;"
+                                    onclick="document.getElementById('p-file').click()">CHOOSE IMAGE</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="notification-settings-section" class="hidden" style="margin-bottom: 25px;">
+                        <span class="menu-label" style="margin-left:0; color:var(--honda-red); display:block; margin-bottom:15px; font-weight:bold; letter-spacing:1px;">SYSTEM ALERTS</span>
+                        <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:12px; border:1px solid var(--border); text-align:center;">
+                            <p style="font-size:0.75rem; color:#888; margin-bottom:15px; line-height:1.4;">Enable real-time popups for Chats, Comments, and Stories. <br><small style="color:#555;">(Recommended for iPhone Home Screen users)</small></p>
+                            <button id="btn-push-activate" class="btn-neon" style="width:auto; padding:12px 30px; font-size:0.7rem; background:rgba(227, 6, 19, 0.1); border:1px solid var(--honda-red);" onclick="activatePushNotifications()">
+                                <i class="fas fa-bell"></i> ENABLE PUSH ALERTS
+                            </button>
+                            <div id="push-status-label" class="hidden" style="color:#31a24c; font-size:0.7rem; font-family:'Orbitron'; font-weight:bold; letter-spacing:1px;">
+                                <i class="fas fa-check-circle"></i> PUSH NOTIFICATIONS ACTIVE
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="privacy-settings-section" style="margin-bottom: 25px;">
+                        <span class="menu-label" style="margin-left:0; color:var(--honda-red); display:block; margin-bottom:15px; font-weight:bold; letter-spacing:1px;">SAFETY &
+                            PRIVACY</span>
+                        <div class="form-grid">
+                            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:15px; border-radius:12px; border:1px solid var(--border);">
+                                <label for="p-visibility" style="font-size:0.8rem; color:#eee; cursor:pointer; flex:1;">Profile Visibility (Friends Only)</label>
+                                <input type="checkbox" id="p-visibility" style="width:20px; height:20px; accent-color:var(--honda-red);">
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.02); padding:15px; border-radius:12px; border:1px solid var(--border);">
+                                <label for="p-lastseen" style="font-size:0.8rem; color:#eee; cursor:pointer; flex:1;">Show "Last Seen" Status</label>
+                                <input type="checkbox" id="p-lastseen" checked style="width:20px; height:20px; accent-color:var(--honda-red);">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Change Password Section (Only for My Profile) -->
+                    <div id="change-password-section" class="hidden" style="margin-bottom: 25px;">
+                        <span class="menu-label" style="margin-left:0; color:var(--honda-red); display:block; margin-bottom:15px; font-weight:bold; letter-spacing:1px;">ACCOUNT SECURITY</span>
+                        <div class="form-grid">
+                            <div>
+                                <label for="p-new-pass" style="font-size:0.7rem; color:#888; margin-bottom:5px; display:block;">NEW SECRET KEY</label>
+                                <input type="password" id="p-new-pass" class="input-dark" placeholder="Enter new password">
+                            </div>
+                            <div>
+                                <label for="p-confirm-pass" style="font-size:0.7rem; color:#888; margin-bottom:5px; display:block;">CONFIRM KEY</label>
+                                <input type="password" id="p-confirm-pass" class="input-dark" placeholder="Repeat new password">
+                            </div>
+                        </div>
+                        <button type="button" class="btn-neon" style="width:100%; margin-top:10px; background:rgba(255,255,255,0.03); border:1px solid #333; color:#aaa;" onclick="updatePassword()">UPDATE SECRET KEY</button>
+                    </div>
+
+                    <div id="mutual-friends-section" class="hidden" style="margin-bottom: 25px;">
+                        <span class="menu-label" style="margin-left:0; color:var(--honda-red); display:block; margin-bottom:15px; font-weight:bold; letter-spacing:1px;">MUTUAL FRIENDS</span>
+                        <div id="mutual-friends-list" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                            <div style="font-size:0.75rem; color:#444;">No mutual friends found.</div>
+                        </div>
+                    </div>
+
+                    <div id="edit-buttons"
+                        style="margin-top:30px; border-top: 1px solid var(--border); padding-top:25px; display:flex; justify-content:flex-end; gap:15px;">
+                        <button class="btn-neon"
+                            style="width:150px; background:transparent; border:1px solid #333; color:#666;"
+                            onclick="window.location.href='index.html'">CANCEL</button>
+                        <button class="btn-neon" style="width:200px;" id="btn-save" onclick="saveProfile()">SAVE
+                            CHANGES</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+        let viewTargetId = null;
+        let viewTargetProfile = null;
+
+        function previewAvatar(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('p-preview').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function initProfilePage() {
+            const params = new URLSearchParams(window.location.search);
+            viewTargetId = params.get('id');
+
+            // Wait for currentUser to be loaded by app.js
+            const check = setInterval(async () => {
+                if (currentUser && profile) {
+                    clearInterval(check);
+
+                    if (viewTargetId && viewTargetId !== currentUser.id) {
+                        // View Mode
+                        await loadTargetProfile(viewTargetId);
+                    } else {
+                        // Edit Mode (My Profile)
+                        prefillProfile(profile, true);
+                        document.getElementById('change-password-section').classList.remove('hidden');
+                        
+                        // Logic Core: Show and Sync Notification Settings
+                        const notifySec = document.getElementById('notification-settings-section');
+                        if (notifySec) {
+                            notifySec.classList.remove('hidden');
+                            syncPushUI();
+                        }
+                    }
+                }
+            }, 100);
+        }
+
+        // Infra-Shadow: PWA Push Activation Protocol
+        function syncPushUI() {
+            const btn = document.getElementById('btn-push-activate');
+            const label = document.getElementById('push-status-label');
+            if (!btn || !label) return;
+
+            if (Notification.permission === 'granted') {
+                btn.classList.add('hidden');
+                label.classList.remove('hidden');
+            } else {
+                btn.classList.remove('hidden');
+                label.classList.add('hidden');
+            }
+        }
+
+        // Infra-Shadow: VAPID Key for Apple/Google Handshake
+        const VAPID_PUBLIC_KEY = 'BKH7BoOj7ljVD4N-kodE_3R9i8nYNYNnixtEArucSeteDQUNOO6DBswRTpjtW_BeLIbntVjr3hbRbG1171GEmeA';
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+            return outputArray;
+        }
+
+        async function activatePushNotifications() {
+            console.log("🚀 [PUSH] Activation triggered...");
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                alert("This device does not support Push Notifications. (PWA Mode Required)");
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                console.log("🚀 [PUSH] Permission status:", permission);
+                if (permission !== 'granted') {
+                    alert("Permission denied. Please enable notifications in your browser settings.");
+                    return;
+                }
+
+                // Logic Core: Subscription Handshake
+                const registration = await navigator.serviceWorker.ready;
+                console.log("🚀 [PUSH] Service Worker Ready");
+                
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+                console.log("🚀 [PUSH] Subscription generated:", subscription);
+
+                if (!profile || !profile.name) {
+                    alert("Error: Profile not loaded. Please refresh the page.");
+                    return;
+                }
+
+                // DB Titan: Register Subscription in Supabase (Synced with app.js)
+                const { error } = await sb.from('push_subscriptions').upsert({
+                    rider_name: profile.name,
+                    subscription: JSON.parse(JSON.stringify(subscription)), // Ensure clean JSON
+                    created_at: new Date().toISOString()
+                }, { onConflict: 'rider_name' });
+
+                if (error) {
+                    console.error("🚀 [PUSH] DB Error:", error);
+                    throw error;
+                }
+
+                alert("🚀 PUSH LINK ESTABLISHED! Your iPhone is now connected to the Hub.");
+                syncPushUI();
+            } catch (err) {
+                console.error("🚀 [PUSH] Subscription Error:", err);
+                alert("Failed to establish Push Link: " + err.message);
+            }
+        }
+
+        async function updatePassword() {
+            const newPass = document.getElementById('p-new-pass').value;
+            const confirmPass = document.getElementById('p-confirm-pass').value;
+
+            if (!newPass || newPass.length < 6) {
+                alert("Password must be at least 6 characters.");
+                return;
+            }
+            if (newPass !== confirmPass) {
+                alert("Passwords do not match!");
+                return;
+            }
+
+            const { error } = await sb.auth.updateUser({ password: newPass });
+
+            if (error) {
+                alert("Error updating password: " + error.message);
+            } else {
+                alert("Secret Key updated successfully!");
+                document.getElementById('p-new-pass').value = '';
+                document.getElementById('p-confirm-pass').value = '';
+            }
+        }
+
+        async function loadTargetProfile(targetId) {
+            const { data, error } = await sb.from('riders').select('*').eq('id', targetId).single();
+            if (error || !data) {
+                alert("Rider not found!");
+                window.location.href = 'index.html';
+                return;
+            }
+            viewTargetProfile = data;
+
+            // Switch UI to View Mode
+            document.getElementById('edit-buttons').classList.add('hidden');
+            document.getElementById('avatar-input-group').classList.add('hidden');
+            document.getElementById('avatar-upload-trigger').style.display = 'none'; // Disable click on avatar
+            document.getElementById('profile-actions').classList.remove('hidden');
+
+            // Hide Inputs, Show Text
+            const inputs = ['p-name', 'p-phone', 'p-model'];
+            inputs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('p-bio').classList.add('hidden');
+
+            const views = ['v-name', 'v-phone', 'v-model', 'v-bio'];
+            views.forEach(id => document.getElementById(id).classList.remove('hidden'));
+
+            const rel = await getRelationshipStatus(targetId);
+            prefillProfile(viewTargetProfile, false, rel.friendStatus);
+            updateRelationshipUI(targetId, data.name);
+            loadMutualFriends(targetId);
+        }
+
+        async function loadMutualFriends(targetId) {
+            const container = document.getElementById('mutual-friends-list');
+            const section = document.getElementById('mutual-friends-section');
+            if (!container || !section || !currentUser) return;
+
+            try {
+                // 1. Get My Friends (IDs)
+                const { data: myF } = await sb.from('friendships').select('sender_id, receiver_id').eq('status', 'accepted').or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`);
+                const myFriendIds = (myF || []).map(f => f.sender_id === currentUser.id ? f.receiver_id : f.sender_id);
+
+                // 2. Get Target's Friends (IDs)
+                const { data: targetF } = await sb.from('friendships').select('sender_id, receiver_id').eq('status', 'accepted').or(`sender_id.eq.${targetId},receiver_id.eq.${targetId}`);
+                const targetFriendIds = (targetF || []).map(f => f.sender_id === targetId ? f.receiver_id : f.sender_id);
+
+                // 3. Find Intersection (Shared friends who are not ME)
+                const mutualIds = myFriendIds.filter(id => targetFriendIds.includes(id) && id !== currentUser.id);
+
+                if (mutualIds.length > 0) {
+                    section.classList.remove('hidden');
+                    container.innerHTML = '';
+
+                    const { data: riders } = await sb.from('riders').select('id, name, avatar_url').in('id', mutualIds);
+                    if (riders && riders.length > 0) {
+                        riders.forEach(r => {
+                            const div = document.createElement('div');
+                            div.style.textAlign = 'center'; div.style.cursor = 'pointer';
+                            div.onclick = () => window.location.href = `profile.html?id=${r.id}`;
+                            div.innerHTML = `
+                                ${getAvatarHTML(r.name, r.avatar_url, "style='width:50px; height:50px; border:1px solid #222;'")}
+                                <div style="font-size:0.6rem; color:#888; margin-top:5px; max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</div>
+                            `;
+                            container.appendChild(div);
+                        });
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                } else {
+                    section.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error("Mutual friends error:", err);
+                section.classList.add('hidden');
+            }
+        }
+
+        function prefillProfile(p, isEditable, friendStatus = 'none') {
+            // Header
+            document.getElementById('display-name-label').innerText = p.name.toUpperCase();
+            document.getElementById('display-badge-cont').innerHTML = getBadgeHTML(p.rank, p.is_super_admin, p.name);
+            if (p.avatar_url) document.getElementById('p-preview').src = p.avatar_url;
+
+            // Fields
+            const privacySec = document.getElementById('privacy-settings-section');
+            if (isEditable) {
+                if (privacySec) privacySec.classList.add('hidden'); // Temporarily hide if columns missing
+                document.getElementById('p-name').value = p.name || '';
+                document.getElementById('p-bio').value = p.bio || '';
+                document.getElementById('p-model').value = p.motorcycle_model || '';
+                document.getElementById('p-phone').value = p.phone_number || '';
+            } else {
+                if (privacySec) privacySec.classList.add('hidden');
+                document.getElementById('v-name').innerText = p.name || 'N/A';
+                document.getElementById('v-bio').innerText = p.bio || 'No bio available.';
+                document.getElementById('v-model').innerText = p.motorcycle_model || 'N/A';
+
+                // Privacy Logic: Show contact number only if they are friends
+                if (friendStatus === 'accepted') {
+                    document.getElementById('v-phone').innerHTML = `<i class="fas fa-phone-alt" style="color:var(--honda-red); margin-right:8px;"></i> ${p.phone_number || 'No number'}`;
+                } else {
+                    document.getElementById('v-phone').innerHTML = `<i class="fas fa-lock" style="color:#444; margin-right:8px;"></i> Hidden (Friends Only)`;
+                }
+            }
+        }
+
+        async function updateRelationshipUI(targetId, targetName) {
+            const container = document.getElementById('profile-actions');
+            const { following, friendStatus, friendId } = await getRelationshipStatus(targetId);
+
+            let followBtn = '';
+            let friendBtn = '';
+
+            // Follow Button Logic
+            if (following) {
+                followBtn = `<button class="btn-neon small-btn" style="background:var(--honda-red); color:white; border:none;" onclick="doToggleFollow('${targetId}', '${targetName}')"><i class="fas fa-check"></i> FOLLOWING</button>`;
+            } else {
+                followBtn = `<button class="btn-neon small-btn" onclick="doToggleFollow('${targetId}', '${targetName}')"><i class="fas fa-plus"></i> FOLLOW</button>`;
+            }
+
+            // Friend Button Logic
+            if (friendStatus === 'none') {
+                friendBtn = `<button class="btn-neon small-btn" onclick="doFriendAction('add', '${targetId}', '${targetName}')"><i class="fas fa-user-plus"></i> ADD FRIEND</button>`;
+            } else if (friendStatus === 'pending_sent') {
+                friendBtn = `<button class="btn-neon small-btn" style="border-color:#f39c12; color:#f39c12;" onclick="doFriendAction('cancel', '${targetId}', '${targetName}', '${friendId}')"><i class="fas fa-clock"></i> CANCEL REQUEST</button>`;
+            } else if (friendStatus === 'pending_received') {
+                friendBtn = `
+                    <button class="btn-neon small-btn" style="border-color:#3498db; color:#3498db; width:auto; padding:0 20px;" onclick="doFriendAction('accept', '${targetId}', '${targetName}', '${friendId}')"><i class="fas fa-user-check"></i> ACCEPT FRIEND REQUEST</button>
+                    <button class="btn-neon small-btn" style="border-color:#e74c3c; color:#e74c3c; width:auto; padding:0 15px;" onclick="doFriendAction('reject', '${targetId}', '${targetName}', '${friendId}')"><i class="fas fa-times"></i></button>
+                `;
+            } else if (friendStatus === 'accepted') {
+                friendBtn = `<button class="btn-neon small-btn" style="border-color:#2ecc71; color:#2ecc71;" onclick="if(confirm('Unfriend this user?')) doFriendAction('unfriend', '${targetId}', '${targetName}', '${friendId}')"><i class="fas fa-check-double"></i> FRIENDS</button>`;
+            }
+
+            container.innerHTML = friendBtn + followBtn;
+        }
+
+        function initRelationshipRealtime(targetId, targetName) {
+            sb.channel('rel-sync')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, async (payload) => {
+                    // Update the buttons
+                    await updateRelationshipUI(targetId, targetName);
+
+                    // Also refresh the privacy lock (phone number) and mutual friends
+                    const { friendStatus } = await getRelationshipStatus(targetId);
+                    prefillProfile(viewTargetProfile, false, friendStatus);
+                    loadMutualFriends(targetId);
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, () => updateRelationshipUI(targetId, targetName))
+                .subscribe();
+        }
+
+        async function doToggleFollow(tid, tname) {
+            await toggleFollow(tid, tname);
+            updateRelationshipUI(tid, tname);
+        }
+
+        async function doFriendAction(action, tid, tname, rid) {
+            await handleFriendAction(action, tid, tname, rid);
+            // Refresh relationship UI (the buttons)
+            await updateRelationshipUI(tid, tname);
+
+            // Refresh the whole profile view to unlock/lock fields (like phone number)
+            const { friendStatus } = await getRelationshipStatus(tid);
+            prefillProfile(viewTargetProfile, false, friendStatus);
+
+            // Reload mutual friends if now accepted
+            loadMutualFriends(tid);
+        }
+
+        async function saveProfile() {
+            const isG = window.isGuest || (localStorage.getItem('isGuest') === 'true');
+            if (isG) {
+                alert("Guest riders cannot modify profiles.");
+                return;
+            }
+
+            const cUser = window.currentUser;
+            if (!cUser || !cUser.id) {
+                alert("Authentication error. Please log in again.");
+                return;
+            }
+
+            const btn = document.getElementById('btn-save');
+            btn.disabled = true;
+            btn.innerText = "SAVING...";
+
+            try {
+                const updates = {
+                    name: document.getElementById('p-name').value.trim(),
+                    bio: document.getElementById('p-bio').value.trim(),
+                    motorcycle_model: document.getElementById('p-model').value.trim(),
+                    phone_number: document.getElementById('p-phone').value.trim()
+                };
+
+                if (!updates.name) {
+                    alert("Name is required!");
+                    btn.disabled = false;
+                    btn.innerText = "SAVE CHANGES";
+                    return;
+                }
+
+                const file = document.getElementById('p-file').files[0];
+                if (file) {
+                    const path = `avatars/${cUser.id}_${Date.now()}`;
+                    const { error: uploadError } = await sb.storage.from('rides').upload(path, file);
+                    if (!uploadError) {
+                        updates.avatar_url = (sb.storage.from('rides').getPublicUrl(path)).data.publicUrl;
+                    } else {
+                        console.error("Avatar upload error:", uploadError);
+                        alert("Avatar upload failed: " + uploadError.message);
+                    }
+                }
+
+                const { error: updateError } = await sb.from('riders').update(updates).eq('id', cUser.id);
+
+                if (updateError) {
+                    console.error("Profile update error:", updateError);
+                    alert("Update failed: " + updateError.message);
+                    btn.disabled = false;
+                    btn.innerText = "SAVE CHANGES";
+                } else {
+                    alert("Profile Updated Successfully!");
+                    if (window.profile) {
+                        Object.assign(window.profile, updates);
+                    }
+                    window.location.reload();
+                }
+            } catch (err) {
+                console.error("Unexpected save error:", err);
+                alert("An unexpected error occurred while saving.");
+                btn.disabled = false;
+                btn.innerText = "SAVE CHANGES";
+            }
+        }
+
+        window.addEventListener('load', () => {
+            const params = new URLSearchParams(window.location.search);
+            const tid = params.get('id');
+            initProfilePage();
+            if (tid) {
+                const check = setInterval(() => {
+                    if (profile && viewTargetProfile) {
+                        clearInterval(check);
+                        initRelationshipRealtime(tid, viewTargetProfile.name);
+                    }
+                }, 500);
+            }
+        });
+    </script>
+</body>
+
+</html>

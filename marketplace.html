@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICPH | PANABO ZONE - Marketplace</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* GUEST PROTOCOL STYLES */
+        .guest-protocol-banner {
+            background: rgba(247, 185, 40, 0.05);
+            border: 1px solid rgba(247, 185, 40, 0.2);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            animation: pulseAmber 4s infinite alternate;
+        }
+        @keyframes pulseAmber {
+            0% { border-color: rgba(247, 185, 40, 0.1); box-shadow: 0 0 5px rgba(247, 185, 40, 0.03); }
+            100% { border-color: rgba(247, 185, 40, 0.4); box-shadow: 0 0 15px rgba(247, 185, 40, 0.08); }
+        }
+        .guest-protocol-banner i { color: #f7b928; font-size: 1.2rem; }
+        .guest-protocol-banner div h4 { font-family: 'Orbitron'; font-size: 0.75rem; color: #f7b928; margin-bottom: 2px; letter-spacing: 1px; }
+        .guest-protocol-banner div p { font-size: 0.6rem; color: #666; }
+
+        .market-hero {
+            background: linear-gradient(135deg, #111, #000);
+            padding: 40px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%; /* Force width */
+            max-width: 100%; /* Prevent overflow */
+        }
+
+        @media (max-width: 600px) {
+            .market-hero {
+                flex-direction: row; /* Keep it side by side for compactness */
+                text-align: left;
+                gap: 10px;
+                padding: 15px 12px;
+                margin-bottom: 12px;
+                justify-content: space-between;
+                border-radius: 10px;
+            }
+            .market-hero h1 {
+                font-size: 0.9rem !important; /* Smaller text */
+                letter-spacing: 1px !important;
+                margin-bottom: 2px !important;
+            }
+            .market-hero p {
+                font-size: 0.55rem !important;
+                display: block;
+            }
+            .market-hero button {
+                width: auto !important;
+                padding: 8px 12px !important;
+                font-size: 0.65rem !important;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+        }
+
+        .market-search-cont {
+            position: relative;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .market-search-cont i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #444;
+        }
+
+        .market-search-cont input {
+            padding-left: 45px !important;
+            margin-bottom: 0 !important;
+            border-radius: 30px !important;
+        }
+
+        .market-tabs-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 5px 0;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .market-tabs-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .market-tabs-container {
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-bottom: 15px;
+                overflow-x: visible;
+                justify-content: center;
+            }
+            .cat-chip {
+                flex: 1 1 auto;
+                min-width: calc(33.333% - 6px);
+                text-align: center;
+                padding: 8px 5px !important;
+                font-size: 0.58rem !important;
+                border-radius: 6px !important;
+            }
+        }
+
+        .market-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        @media (max-width: 500px) {
+            .market-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px; /* Tighter gap */
+            }
+            .product-img {
+                height: 110px; /* Shorter image to see more cards */
+            }
+            .product-info {
+                padding: 6px; /* Minimal padding */
+            }
+            .product-price {
+                font-size: 0.85rem;
+                margin: 2px 0;
+            }
+            .product-title {
+                font-size: 0.75rem;
+                margin-bottom: 2px;
+            }
+            .product-card {
+                border-radius: 10px; /* Sharper corners for modern look */
+            }
+            .cat-chip {
+                padding: 6px 12px;
+                font-size: 0.65rem;
+            }
+            #market-tabs {
+                margin-bottom: 12px !important; /* Less wasted space above items */
+            }
+            .market-mobile-header {
+                margin-bottom: 10px;
+            }
+        }
+
+        .product-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--honda-red);
+        }
+
+        .product-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .product-info {
+            padding: 15px;
+        }
+
+        .product-price {
+            font-family: 'Orbitron';
+            color: var(--honda-red);
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin: 5px 0;
+        }
+
+        .product-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sold-tag {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #fff;
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-weight: 800;
+            font-size: 0.6rem;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            z-index: 10;
+        }
+
+        .cat-chip {
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid #1a1a1a;
+            border-radius: 20px;
+            cursor: pointer;
+            color: #666;
+            font-size: 0.7rem;
+            font-weight: 700;
+            transition: 0.3s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .cat-chip.active {
+            background: var(--honda-red);
+            color: #fff;
+            border-color: var(--neon-red);
+            box-shadow: 0 0 10px rgba(227, 6, 19, 0.3);
+        }
+
+        /* Floating Action Button for Mobile */
+        .fab-sell {
+            display: none;
+            position: fixed;
+            bottom: 85px;
+            right: 15px;
+            width: 48px;
+            height: 48px;
+            background: var(--honda-red);
+            color: white;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(227, 6, 19, 0.5);
+            z-index: 9999;
+            border: 2px solid rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .fab-sell:active { transform: scale(0.9); }
+
+        @media (max-width: 600px) {
+            .market-mobile-header {
+                display: flex !important; /* Keep the top header as backup */
+            }
+            .fab-sell {
+                display: flex; 
+            }
+        }
+
+        .sell-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 500px) {
+            .modal-grid-2 {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+        }
+
+        .product-detail-card {
+            width: 700px;
+            max-width: 100%;
+            padding: 0;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: row;
+            height: 500px;
+        }
+
+        .product-detail-img-cont {
+            flex: 1.2;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-detail-info {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: #0a0a0a;
+            border-left: 1px solid #1a1a1a;
+        }
+
+        @media (max-width: 750px) {
+            .product-detail-card {
+                flex-direction: column;
+                height: auto;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
+            .product-detail-img-cont {
+                height: 200px;
+                flex: none;
+            }
+            .product-detail-info {
+                padding: 20px;
+                border-left: none;
+                border-top: 1px solid #1a1a1a;
+            }
+            .product-detail-info h2 {
+                font-size: 1.1rem !important;
+            }
+            .product-detail-info #p-detail-price {
+                font-size: 1.3rem !important;
+                margin-bottom: 12px !important;
+            }
+            .product-detail-info div[style*="border-top"] {
+                padding-top: 15px !important;
+                margin-bottom: 20px !important;
+            }
+            .product-detail-info span {
+                font-size: 0.75rem !important;
+            }
+            .sell-modal .glass-card {
+                padding: 20px !important;
+                max-height: 90vh; /* Prevent card from exceeding screen height */
+                overflow-y: auto; /* Enable scrolling if content is too long */
+            }
+            .sell-modal .glass-card .fa-times {
+                top: 15px !important; /* Move close button inside */
+                right: 15px !important;
+                width: 35px !important;
+                height: 35px !important;
+                background: rgba(255,255,255,0.1) !important;
+                color: #fff !important;
+            }
+            .sell-modal h3 {
+                font-size: 0.8rem !important;
+                margin-bottom: 15px !important;
+            }
+            .sell-modal label {
+                font-size: 0.55rem !important;
+            }
+            .sell-modal .input-dark {
+                padding: 8px 12px !important;
+                font-size: 0.85rem !important;
+            }
+            #m-preview {
+                height: 90px !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="dark-mode">
+    <main class="main-stage">
+        <div class="content-scroll">
+            <div style="max-width: 1100px; margin: 0 auto; width: 100%;">
+
+                <div id="guest-banner" class="guest-protocol-banner hidden">
+                    <i class="fas fa-user-secret"></i>
+                    <div>
+                        <h4>GUEST PROTOCOL ACTIVE</h4>
+                        <p>RESTRICTED ACCESS: MARKETPLACE ONLY. LOG IN TO ACCESS THE FULL COMMUNITY HUB.</p>
+                    </div>
+                </div>
+
+                <div class="market-hero desktop-only">
+                    <div>
+                        <h1 style="font-family:'Orbitron'; letter-spacing:4px; color:white; margin-bottom:5px;">
+                            MARKETPLACE</h1>
+                        <p style="font-size:0.8rem; color:#444; letter-spacing:1px;">BUY AND SELL RIDING GEAR & PARTS
+                        </p>
+                    </div>
+                    <button id="sell-item-btn" class="btn-neon" style="width:auto; padding:12px 30px;" onclick="toggleSellModal(true)">
+                        <i class="fas fa-shopping-cart"></i> SELL ITEM
+                    </button>
+                </div>
+
+                <div class="market-search-cont">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="market-search" class="input-dark" placeholder="Search items for sale..." oninput="renderMarket()">
+                </div>
+
+                <div class="market-tabs-container" id="market-tabs">
+                    <div class="cat-chip active" onclick="filterCat('All', this)"><i class="fas fa-th-large"></i> ALL</div>
+                    <div id="my-listings-tab" class="cat-chip" onclick="filterCat('MyListings', this)"><i class="fas fa-user-tag"></i> MINE</div>
+                    <div class="cat-chip" onclick="filterCat('Parts', this)"><i class="fas fa-cog"></i> PARTS</div>
+                    <div class="cat-chip" onclick="filterCat('Accessories', this)"><i class="fas fa-helmet-safety"></i> GEAR</div>
+                    <div class="cat-chip" onclick="filterCat('Full Bike', this)"><i class="fas fa-motorcycle"></i> BIKES</div>
+                    <div class="cat-chip" onclick="filterCat('Services', this)"><i class="fas fa-tools"></i> SVCS</div>
+                </div>
+
+                <div id="market-loading" style="text-align:center; padding:50px;">
+                    <i class="fas fa-circle-notch fa-spin" style="font-size:2rem; color:var(--honda-red);"></i>
+                </div>
+
+                <div id="market-grid" class="market-grid">
+                    <!-- Products here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sell/Edit Modal -->
+    <div id="sell-modal" class="sell-modal hidden">
+        <div class="glass-card" style="width:100%; max-width:500px; padding:30px; position:relative; overflow:visible;">
+            <i class="fas fa-times"
+                style="position:absolute; top:-10px; right:-10px; background:#fff; color:#000; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;"
+                onclick="toggleSellModal(false)"></i>
+            <h3 id="modal-title"
+                style="font-family:'Orbitron'; font-size:1rem; color:var(--honda-red); margin-bottom:25px; letter-spacing:2px;">
+                LIST NEW ITEM</h3>
+
+            <input type="hidden" id="m-edit-id">
+
+            <div class="modal-grid-2">
+                <div>
+                    <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">ITEM NAME</label>
+                    <input type="text" id="m-title" class="input-dark" placeholder="e.g. Helmet">
+                </div>
+                <div>
+                    <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">PRICE (₱)</label>
+                    <input type="number" id="m-price" class="input-dark" placeholder="0.00">
+                </div>
+            </div>
+
+            <div class="modal-grid-2">
+                <div>
+                    <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">CATEGORY</label>
+                    <select id="m-category" class="input-dark">
+                        <option>Parts</option>
+                        <option>Accessories</option>
+                        <option>Full Bike</option>
+                        <option>Services</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">LOCATION</label>
+                    <input type="text" id="m-location" class="input-dark" placeholder="Panabo City">
+                </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">CONTACT NUMBER</label>
+                <input type="text" id="m-contact" class="input-dark" placeholder="09XX XXX XXXX">
+            </div>
+
+            <div style="margin-bottom:25px;">
+                <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:5px;">ITEM PHOTO</label>
+                <input type="file" id="m-file" class="hidden" onchange="previewImg(this)">
+                <div id="m-preview"
+                    style="width:100%; height:120px; border:1px dashed #333; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden;"
+                    onclick="document.getElementById('m-file').click()">
+                    <i class="fas fa-camera" style="font-size:1.5rem; color:#222;"></i>
+                </div>
+            </div>
+
+            <button class="btn-neon" id="btn-publish-m" style="width:100%;" onclick="postMarket()">PUBLISH
+                LISTING</button>
+        </div>
+    </div>
+
+    <!-- Product Details Modal -->
+    <div id="product-modal" class="sell-modal hidden">
+        <div class="glass-card product-detail-card">
+            <i class="fas fa-times"
+                style="position:absolute; top:15px; right:15px; background:rgba(255,255,255,0.1); color:#fff; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:100;"
+                onclick="toggleProductModal(false)"></i>
+
+            <div class="product-detail-img-cont">
+                <img id="p-detail-img" src="" style="width:100%; height:100%; object-fit:contain;">
+            </div>
+
+            <div class="product-detail-info">
+                <div id="p-detail-cat"
+                    style="font-size:0.6rem; color:var(--honda-red); font-weight:800; letter-spacing:2px; margin-bottom:10px; text-transform:uppercase;">
+                    CATEGORY</div>
+                <h2 id="p-detail-title"
+                    style="font-family:'Orbitron'; font-size:1.4rem; color:white; margin-bottom:5px; line-height:1.2;">
+                    PRODUCT NAME</h2>
+                <div id="p-detail-price"
+                    style="font-family:'Orbitron'; color:var(--honda-red); font-size:1.8rem; font-weight:800; margin-bottom:20px;">
+                    ₱0.00</div>
+
+                <div style="border-top:1px solid #1a1a1a; padding-top:20px; margin-bottom:30px;">
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
+                        <i class="fas fa-map-marker-alt" style="color:var(--honda-red); width:20px;"></i>
+                        <span id="p-detail-loc" style="font-size:0.85rem; color:#888;">Panabo City</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
+                        <i class="fas fa-user" style="color:var(--honda-red); width:20px;"></i>
+                        <span id="p-detail-rider" style="font-size:0.85rem; color:#888;">Rider Name</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <i class="fas fa-phone" style="color:var(--honda-red); width:20px;"></i>
+                        <span id="p-detail-phone" style="font-size:0.85rem; color:#888;">09XX XXX XXXX</span>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;" id="p-detail-actions">
+                    <!-- Buttons injected here -->
+                </div>
+                <div id="p-owner-actions" class="hidden"
+                    style="margin-top:15px; display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                    <button class="btn-neon" style="background:transparent; border:1px solid #333; color:#666;"
+                        id="btn-edit-m">EDIT</button>
+                    <button class="btn-neon" style="background:transparent; border:1px solid #800; color:#800;"
+                        id="btn-delete-m">DELETE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="fab-sell" class="fab-sell" onclick="toggleSellModal(true)">
+        <i class="fas fa-plus"></i>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let allItems = [], currentCat = 'All';
+
+        function toggleSellModal(s, editItem = null) {
+            if (s && isGuest) return alert("Please log in to sell items.");
+            const modal = document.getElementById('sell-modal');
+            const title = document.getElementById('modal-title');
+            const btn = document.getElementById('btn-publish-m');
+
+            modal.classList.toggle('hidden', !s);
+
+            if (s) {
+                if (editItem) {
+                    title.innerText = "EDIT LISTING";
+                    btn.innerText = "UPDATE LISTING";
+                    document.getElementById('m-edit-id').value = editItem.id;
+                    document.getElementById('m-title').value = editItem.title;
+                    document.getElementById('m-price').value = editItem.price;
+                    document.getElementById('m-category').value = editItem.category;
+                    document.getElementById('m-location').value = editItem.location || '';
+                    document.getElementById('m-contact').value = editItem.contact || '';
+                    document.getElementById('m-preview').innerHTML = `<img src="${editItem.img}" style="width:100%; height:100%; object-fit:cover;">`;
+                } else {
+                    title.innerText = "LIST NEW ITEM";
+                    btn.innerText = "PUBLISH LISTING";
+                    document.getElementById('m-edit-id').value = '';
+                    document.getElementById('m-title').value = '';
+                    document.getElementById('m-price').value = '';
+                    document.getElementById('m-category').value = 'Parts';
+                    document.getElementById('m-location').value = '';
+                    document.getElementById('m-contact').value = '';
+                    document.getElementById('m-preview').innerHTML = '<i class="fas fa-camera" style="font-size:1.5rem; color:#222;"></i>';
+                }
+            }
+        }
+
+        function toggleProductModal(s, item = null) {
+            const modal = document.getElementById('product-modal');
+            modal.classList.toggle('hidden', !s);
+            if (s && item) {
+                document.getElementById('p-detail-img').src = item.img;
+                document.getElementById('p-detail-cat').innerText = item.category;
+                document.getElementById('p-detail-title').innerText = item.title;
+                document.getElementById('p-detail-price').innerText = `₱${Number(item.price).toLocaleString()}`;
+                document.getElementById('p-detail-loc').innerText = item.location || 'Panabo City';
+                document.getElementById('p-detail-rider').innerText = item.rider_name;
+                document.getElementById('p-detail-phone').innerText = item.contact || 'N/A';
+
+                const actions = document.getElementById('p-detail-actions');
+                const ownerActions = document.getElementById('p-owner-actions');
+                const isOwner = !isGuest && (item.user_id === currentUser?.id || item.rider_name === profile?.name);
+
+                let messageBtn = '';
+                if (!isGuest && !isOwner) {
+                    messageBtn = `<button class="btn-neon" onclick="startPrivateChat('${item.rider_name}')">MESSAGE</button>`;
+                } else if (isGuest) {
+                    messageBtn = `<button class="btn-neon" style="opacity:0.3; cursor:not-allowed;" title="Login to message">MESSAGE</button>`;
+                } else if (isOwner) {
+                    messageBtn = `<button class="btn-neon" onclick="markSold('${item.id}')" ${item.is_sold ? 'disabled' : ''}>${item.is_sold ? 'SOLD' : 'MARK SOLD'}</button>`;
+                }
+
+                actions.innerHTML = `
+                    <button class="btn-neon" style="background:#111; border:1px solid #333;" onclick="window.location.href='tel:${item.contact}'">CALL NOW</button>
+                    ${messageBtn}
+                `;
+
+                if (isOwner) {
+                    ownerActions.classList.remove('hidden');
+                    document.getElementById('btn-edit-m').onclick = () => { toggleProductModal(false); toggleSellModal(true, item); };
+                    document.getElementById('btn-delete-m').onclick = () => deleteMarket(item.id);
+                } else {
+                    ownerActions.classList.add('hidden');
+                }
+            }
+        }
+
+        function previewImg(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('m-preview').innerHTML = `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover;">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function loadMarket() {
+            const { data, error } = await sb.from('marketplace').select('*').order('created_at', { ascending: false });
+            if (error) return console.error(error);
+            allItems = data || [];
+            document.getElementById('market-loading').classList.add('hidden');
+
+            // Guest Check
+            if (isGuest) {
+                const guestBanner = document.getElementById('guest-banner');
+                if (guestBanner) guestBanner.classList.remove('hidden');
+                
+                const sellBtn = document.getElementById('sell-item-btn');
+                const myTab = document.getElementById('my-listings-tab');
+                const fab = document.getElementById('fab-sell');
+                if (sellBtn) sellBtn.classList.add('hidden');
+                if (myTab) myTab.classList.add('hidden');
+                if (fab) fab.classList.add('hidden');
+            }
+
+            renderMarket();
+        }
+
+        function renderMarket() {
+            const grid = document.getElementById('market-grid');
+            grid.innerHTML = '';
+
+            let filtered = [];
+            if (currentCat === 'All') filtered = allItems;
+            else if (currentCat === 'MyListings') filtered = allItems.filter(i => !isGuest && (i.user_id === currentUser?.id || i.rider_name === profile?.name));
+            else filtered = allItems.filter(i => i.category === currentCat);
+
+            const q = document.getElementById('market-search').value.toLowerCase().trim();
+            if (q) {
+                filtered = filtered.filter(i => 
+                    i.title.toLowerCase().includes(q) || 
+                    (i.location && i.location.toLowerCase().includes(q)) ||
+                    (i.rider_name && i.rider_name.toLowerCase().includes(q))
+                );
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:100px; color:#444;">No items found.</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.style.cursor = 'pointer';
+                card.onclick = () => toggleProductModal(true, item);
+                if (item.is_sold) card.style.opacity = '0.6';
+
+                const isOwner = !isGuest && (item.user_id === currentUser?.id || item.rider_name === profile?.name);
+
+                card.innerHTML = `
+                    ${item.is_sold ? '<div class="sold-tag">SOLD</div>' : ''}
+                    ${isOwner ? '<div style="position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; z-index:10; color:white; font-size:0.55rem;"><i class="fas fa-user-tag"></i> MINE</div>' : ''}
+                    <img src="${item.img}" class="product-img">
+                    <div class="product-info">
+                        <div class="product-title">${item.title}</div>
+                        <div class="product-price">₱${Number(item.price).toLocaleString()}</div>
+                        <div style="font-size:0.55rem; color:#555; margin-bottom:2px;">
+                            <i class="fas fa-map-marker-alt" style="font-size:0.5rem;"></i> ${item.location || 'Panabo City'}
+                        </div>
+                        <div style="font-size:0.55rem; color:#555;">
+                            <i class="fas fa-user" style="font-size:0.5rem;"></i> ${item.rider_name}
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterCat(cat, el) {
+            currentCat = cat;
+            document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            renderMarket();
+        }
+
+        async function postMarket() {
+            const btn = document.getElementById('btn-publish-m');
+            const editId = document.getElementById('m-edit-id').value;
+            const t = document.getElementById('m-title').value,
+                p = document.getElementById('m-price').value,
+                c = document.getElementById('m-category').value,
+                l = document.getElementById('m-location').value,
+                cnt = document.getElementById('m-contact').value,
+                f = document.getElementById('m-file').files[0];
+
+            if (!t || !p) return alert("Please fill in title and price.");
+            
+            const uProfile = window.profile;
+
+            if (!uProfile) {
+                return alert("You must be logged in to publish a listing.");
+            }
+
+            btn.disabled = true;
+            btn.innerText = editId ? "UPDATING..." : "PUBLISHING...";
+
+            try {
+                const updates = {
+                    rider_name: uProfile.name,
+                    title: t,
+                    price: p,
+                    category: c,
+                    location: l,
+                    contact: cnt
+                };
+
+                if (f) {
+                    const path = `market/${Date.now()}_${f.name}`;
+                    const { error: uploadError } = await sb.storage.from('rides').upload(path, f);
+                    
+                    if (uploadError) {
+                        console.error("Upload Error:", uploadError);
+                        alert("Image upload failed: " + uploadError.message);
+                        return;
+                    }
+                    
+                    updates.img = (sb.storage.from('rides').getPublicUrl(path)).data.publicUrl;
+                } else if (!editId) {
+                    alert("Please select a photo.");
+                    return;
+                }
+
+                let res;
+                if (editId) {
+                    res = await sb.from('marketplace').update(updates).eq('id', editId);
+                } else {
+                    res = await sb.from('marketplace').insert([updates]);
+                }
+
+                if (res.error) {
+                    console.error("Database Error:", res.error);
+                    alert("Failed to save listing: " + res.error.message);
+                } else {
+                    alert(editId ? "Listing updated!" : "Listing published successfully!");
+                    toggleSellModal(false);
+                    loadMarket();
+                }
+            } catch (err) {
+                console.error("Unexpected Error:", err);
+                alert("An unexpected error occurred: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = editId ? "UPDATE LISTING" : "PUBLISH LISTING";
+            }
+        }
+
+        async function markSold(id) {
+            if (!confirm("Mark this item as sold?")) return;
+            await sb.from('marketplace').update({ is_sold: true }).eq('id', id);
+            toggleProductModal(false);
+            loadMarket();
+        }
+
+        async function deleteMarket(id) {
+            if (!confirm("Are you sure you want to DELETE this listing permanently?")) return;
+            const { error } = await sb.from('marketplace').delete().eq('id', id);
+            if (!error) {
+                alert("Listing deleted successfully!");
+                toggleProductModal(false);
+                loadMarket();
+            } else {
+                alert("Delete failed: " + error.message);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            const check = setInterval(() => {
+                if (profile) { clearInterval(check); loadMarket(); }
+            }, 500);
+        });
+    </script>

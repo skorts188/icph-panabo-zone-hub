@@ -1,0 +1,54 @@
+-- ADMIN USER MANAGEMENT RPC (V36.3 - ULTRA SECURE)
+-- TO BE RUN IN SUPABASE SQL EDITOR
+
+-- 1. Function to update any user's password
+CREATE OR REPLACE FUNCTION update_user_password_admin(target_user_id UUID, new_password TEXT, master_code TEXT)
+RETURNS VOID AS $$
+DECLARE
+    is_super_admin BOOLEAN;
+BEGIN
+    -- Check if caller is super_admin
+    SELECT r.is_super_admin INTO is_super_admin FROM public.riders r WHERE r.id = auth.uid();
+
+    IF NOT is_super_admin THEN
+        RAISE EXCEPTION 'Unauthorized: Access Denied.';
+    END IF;
+
+    -- VERIFY SECRET MASTER CODE (Hidden from Frontend)
+    IF master_code != 'iangwapo' THEN
+        RAISE EXCEPTION 'Invalid Master Override Code.';
+    END IF;
+
+    UPDATE auth.users 
+    SET encrypted_password = crypt(new_password, gen_salt('bf'))
+    WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. Function to completely delete a user
+CREATE OR REPLACE FUNCTION delete_user_completely_admin(target_user_id UUID, master_code TEXT)
+RETURNS VOID AS $$
+DECLARE
+    is_super_admin BOOLEAN;
+    target_email TEXT;
+BEGIN
+    SELECT r.is_super_admin INTO is_super_admin FROM public.riders r WHERE r.id = auth.uid();
+    SELECT email INTO target_email FROM auth.users WHERE id = target_user_id;
+
+    IF NOT is_super_admin THEN
+        RAISE EXCEPTION 'Unauthorized.';
+    END IF;
+
+    -- VERIFY SECRET MASTER CODE
+    IF master_code != 'iangwapo' THEN
+        RAISE EXCEPTION 'Invalid Master Override Code.';
+    END IF;
+
+    IF target_email = 'admin@panabo.icph' THEN
+        RAISE EXCEPTION 'CRITICAL ERROR: ROOT account is protected.';
+    END IF;
+
+    DELETE FROM public.riders WHERE id = target_user_id;
+    DELETE FROM auth.users WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
